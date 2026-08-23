@@ -65,6 +65,7 @@ public class TestCastTypeNames {
     public void testOtherNumberCastTypeNames() {
         assertEquals("INTEGER", new DBDictionary().getNumberCastTypeName(int.class));
         assertEquals("SIGNED", new MySQLDictionary().getNumberCastTypeName(int.class));
+        assertEquals("NUMBER", new OracleDictionary().getNumberCastTypeName(int.class)); // tests lazy inint
         assertEquals("FLOAT", new DBDictionary().getNumberCastTypeName(float.class));
         assertEquals("DOUBLE", new DBDictionary().getNumberCastTypeName(double.class));
     }

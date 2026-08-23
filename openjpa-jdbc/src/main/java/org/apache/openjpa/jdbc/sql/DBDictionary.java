@@ -18,6 +18,8 @@
  */
 package org.apache.openjpa.jdbc.sql;
 
+import static java.util.Locale.ROOT;
+
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.CharArrayReader;
@@ -141,8 +143,6 @@ import org.apache.openjpa.util.Serialization;
 import org.apache.openjpa.util.StoreException;
 import org.apache.openjpa.util.UnsupportedException;
 import org.apache.openjpa.util.UserException;
-
-import static java.util.Locale.ROOT;
 
 
 /**
@@ -518,7 +518,7 @@ public class DBDictionary
      * Dictionaries which change {@link #integerTypeName} do <em>not</em> implicitly change this value.
      * Set it explicitly if the DDL type name is not a valid CAST target.
      */
-    public String integerCastTypeName = integerTypeName;
+    public String integerCastTypeName = null;
 
     /**
      * Type name used as the target of a CAST to a 64 bit integer.
@@ -2241,11 +2241,19 @@ public class DBDictionary
     }
 
     /**
+     * Return the type name to use as the target of a CAST to a 32 bit integer.
+     * Defaults to {@link #integerTypeName} unless {@link #integerCastTypeName} was set explicitly.
+     */
+    public String getIntegerCastTypeName() {
+        return integerCastTypeName == null ? integerTypeName : integerCastTypeName;
+    }
+
+    /**
      * Return the type name to use as the target of a CAST to a 64 bit integer.
      * Defaults to {@link #bigintTypeName} unless {@link #longCastTypeName} was set explicitly.
      */
     public String getLongCastTypeName() {
-        return longCastTypeName != null ? longCastTypeName : bigintTypeName;
+        return longCastTypeName == null ? bigintTypeName : longCastTypeName;
     }
 
     /**
@@ -2255,7 +2263,7 @@ public class DBDictionary
     public String getNumberCastTypeName(Class<?> type) {
         String name;
         if (type == int.class || type == Integer.class) {
-            name = integerCastTypeName;
+            name = getIntegerCastTypeName();
         } else if (type == long.class || type == Long.class) {
             name = getLongCastTypeName();
         } else if (type == float.class || type == Float.class) {
@@ -5356,27 +5364,32 @@ public class DBDictionary
     @Override
     public void endConfiguration() {
         // add additional reserved words set by user
-        if (reservedWords != null)
+        if (reservedWords != null) {
             reservedWordSet.addAll(Arrays.asList(StringUtil.split(reservedWords.toUpperCase(Locale.ENGLISH), ",", 0)));
+        }
 
         // add system schemas set by user
-        if (systemSchemas != null)
+        if (systemSchemas != null) {
             systemSchemaSet.addAll(Arrays.asList(StringUtil.split(systemSchemas.toUpperCase(Locale.ENGLISH), ",", 0)));
+        }
 
         // add system tables set by user
-        if (systemTables != null)
+        if (systemTables != null) {
             systemTableSet.addAll(Arrays.asList(StringUtil.split(systemTables.toUpperCase(Locale.ENGLISH), ",", 0)));
+        }
 
         // add fixed size type names set by the user
-        if (fixedSizeTypeNames != null)
+        if (fixedSizeTypeNames != null) {
             fixedSizeTypeNameSet.addAll(Arrays.asList(StringUtil.split(fixedSizeTypeNames.toUpperCase(Locale.ENGLISH), ",", 0)));
+        }
 
         // if user has unset sequence sql, null it out so we know sequences
         // aren't supported
         nextSequenceQuery = StringUtil.trimToNull(nextSequenceQuery);
 
-        if (selectWords != null)
+        if (selectWords != null) {
             selectWordSet.addAll(Arrays.asList(StringUtil.split(selectWords.toUpperCase(Locale.ENGLISH), ",", 0)));
+        }
 
         if (invalidColumnWordSet.isEmpty()) {
             Collection<String> invalidColumns = loadFromResource("sql-invalid-column-names.rsrc");
