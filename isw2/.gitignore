@@ -1,0 +1,10 @@
+# IntelliJ
+.idea/
+*.iml
+# Maven build output
+target/
+# Generated datasets - regenerate with the tool, do not version
+dataset-tool/data/
+# Secrets
+*.token
+.sonar-token
