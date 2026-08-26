@@ -1,0 +1,4 @@
+# Normalise line endings for everything under isw2/.
+# Without this, editing a file on Windows rewrites every line and git reports
+# the whole file as changed. Scoped to isw2/ so OpenJPA's own tree is untouched.
+* text=auto eol=lf
