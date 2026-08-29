@@ -35,6 +35,8 @@ deliverable and the data is reproducible by running it.
 |---|---|---|
 | Releases and dates from JIRA | `isw2.openjpa.ReleaseExtractor` | `data/OPENJPAVersionInfo.csv` |
 | 66% cut + release-to-commit mapping | `isw2.openjpa.ReleaseResolver` | `data/releases.csv` |
+| Fixed bug tickets from JIRA | `isw2.openjpa.TicketExtractor` | `data/tickets.csv` |
+| Ticket / affected-version diagnostics | `isw2.openjpa.TicketStats` | `data/ticket_stats.csv` |
 
 *(further stages are added as the project progresses)*
 
