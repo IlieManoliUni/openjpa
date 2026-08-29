@@ -37,6 +37,7 @@ deliverable and the data is reproducible by running it.
 | 66% cut + release-to-commit mapping | `isw2.openjpa.ReleaseResolver` | `data/releases.csv` |
 | Fixed bug tickets from JIRA | `isw2.openjpa.TicketExtractor` | `data/tickets.csv` |
 | Ticket / affected-version diagnostics | `isw2.openjpa.TicketStats` | `data/ticket_stats.csv` |
+| Proportion (Total): OV, FV, IV per ticket | `isw2.openjpa.Proportion` | `data/proportion.csv` |
 
 *(further stages are added as the project progresses)*
 
