@@ -17,7 +17,7 @@ import weka.core.converters.ConverterUtils.DataSource;
 
 /**
  * Walk-forward validation, the technique used in the RQ2 methodology of
- * 12_Npofb20.pdf ("Create Train and Test Datasets: Use the walk-forward
+ * the effort-aware metrics study ("Create Train and Test Datasets: Use the walk-forward
  * validation technique").
  *
  * For k = 1 .. releases-1:

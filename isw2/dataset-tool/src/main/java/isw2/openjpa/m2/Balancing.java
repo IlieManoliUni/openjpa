@@ -8,7 +8,7 @@ import weka.filters.supervised.instance.Resample;
 import weka.filters.supervised.instance.SpreadSubsample;
 
 /**
- * The three sampling techniques listed on slide 9 of 13_1_Balancing.pdf, plus
+ * The three sampling techniques listed in the balancing material, plus
  * the "no balancing" baseline.
  *
  * Every filter here is a SUPERVISED INSTANCE filter. That matters: Weka's
@@ -71,7 +71,7 @@ public enum Balancing {
                 //         equal rather than in their natural proportion.
                 // -Z      sampleSizePercent, as a percentage of the INPUT size.
                 // Sampling is with replacement (Weka's default), which is what
-                // the slide means by "noReplacement=false".
+                // the assignment means by "noReplacement=false".
                 Resample filter = new Resample();
                 filter.setOptions(new String[] {
                         "-B", "1.0",
@@ -110,13 +110,13 @@ public enum Balancing {
      *
      *     Z = 100 * k * majority / total
      *
-     * Diabetes check against the slide's own example: k=2, majority=500,
-     * total=768 -> 100 * 1000 / 768 = 130.2, and the slide says 130.3.
+     * Diabetes check against the material's own example: k=2, majority=500,
+     * total=768 -> 100 * 1000 / 768 = 130.2, and the material says 130.3.
      *
-     * The formula PRINTED on that slide, 100*(majority-minority)/minority,
+     * The formula printed under that heading, 100*(majority-minority)/minority,
      * gives 86.6 for diabetes - it would shrink the training set instead of
-     * growing it. That expression is the correct one for SMOTE's -P, one
-     * bullet further down; see smotePercent below.
+     * growing it. That expression is the correct one for SMOTE's -P;
+     * see smotePercent below.
      */
     public static double oversamplingPercent(Instances data) {
         int[] counts = classCounts(data);

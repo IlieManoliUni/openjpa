@@ -14,7 +14,7 @@ public final class Config {
     /** Our assigned project. Last-name initial M -> 13 mod 6 = 1 -> OPENJPA. */
     public static final String PROJECT_KEY = "OPENJPA";
 
-    /** Falessi M1: "ignore last 66% of releases" -> keep the first third. */
+    /** Milestone 1: "ignore last 66% of releases" -> keep the first third. */
     public static final double KEEP_FRACTION = 1.0 / 3.0;
 
     /** SonarCloud project key. Not a secret; the token is in $SONAR_TOKEN. */

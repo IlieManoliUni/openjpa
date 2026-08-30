@@ -5,7 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Effort-aware accuracy metrics, from 12_Npofb20.pdf (Carka, Esposito, Falessi,
+ * Effort-aware accuracy metrics, from Carka, Esposito and Falessi,
  * "On effort-aware metrics for defect prediction", EMSE 27:152, 2022).
  *
  * The idea: Precision/Recall/AUC/Kappa all treat every class as equally

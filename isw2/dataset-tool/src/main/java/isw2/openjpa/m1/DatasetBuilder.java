@@ -17,7 +17,7 @@ import java.util.Set;
 /**
  * Milestone 1, final step: join metrics, NSmells and bugginess into the dataset.
  *
- *   dataset.csv   one row per (class, release), as the Milestone 1 slide specifies
+ *   dataset.csv   one row per (class, release), as the Milestone 1 assignment specifies
  *   dataset.arff  the same rows for Weka, features only
  */
 public class DatasetBuilder {

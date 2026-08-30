@@ -25,7 +25,7 @@ import weka.core.converters.ConverterUtils.DataSource;
  * Produces four files under data/:
  *
  *   m2_results.csv     THE DELIVERABLE. Twelve rows, columns exactly as in
- *                      15_2_ExampleOfOutputD2M2.csv, rows in his order.
+ *                      the provided example output, rows in its order.
  *
  *   m2_detailed.csv    The same cells with the standard deviation and all ten
  *                      per-repetition values, plus PofB20. This is what lets
@@ -33,8 +33,8 @@ import weka.core.converters.ConverterUtils.DataSource;
  *                      than the noise, rather than just quoting two means.
  *
  *   m2_balancing.csv   The improvement layer: no balancing vs SpreadSubsample
- *                      vs Resample vs SMOTE, the three techniques on slide 9 of
- *                      13_1_Balancing.pdf, which the milestone collapses into a
+ *                      vs Resample vs SMOTE, the three techniques in the
+ *                      balancing material, which the milestone collapses into a
  *                      single Yes/No column.
  *
  *   m2_features.csv    How often CFS kept each of the 17 metrics across the 100
@@ -85,8 +85,8 @@ public class ClassifierEvaluator {
         System.out.println();
         System.out.println("=== required matrix: 3 classifiers x FS x balancing ===");
 
-        // Cell order copied from 15_2_ExampleOfOutputD2M2.csv: balancing is the
-        // outer loop, then feature selection, then the classifier. His example
+        // Cell order copied from the provided example output: balancing is the
+        // outer loop, then feature selection, then the classifier. That example
         // lists RandomForest/NaiveBayes/Ibk three at a time under each setting.
         for (Balancing balancing : List.of(Balancing.NONE, Balancing.OVERSAMPLING)) {
             for (boolean featureSelection : List.of(false, true)) {
@@ -158,7 +158,7 @@ public class ClassifierEvaluator {
      * Loads the Milestone 1 ARFF and points Weka at the class attribute.
      *
      * The class is the last attribute, so setClassIndex(numAttributes() - 1) -
-     * the same idiom as his TestWekaEasy.java. Weka has no notion of a "class
+     * the same idiom as the provided evaluation example. Weka has no notion of a "class
      * column" until you say so; without this line every method that needs the
      * class throws UnassignedClassException.
      */
@@ -196,7 +196,7 @@ public class ClassifierEvaluator {
         return data;
     }
 
-    /** The twelve required cells, in the order of his example output. */
+    /** The twelve required cells, in the order of the provided example output. */
     private static List<Cell> requiredCells() {
         List<Cell> cells = new ArrayList<>();
         for (Balancing balancing : List.of(Balancing.NONE, Balancing.OVERSAMPLING)) {
@@ -211,11 +211,11 @@ public class ClassifierEvaluator {
 
     /**
      * THE DELIVERABLE. Columns and their spelling are copied from
-     * 15_2_ExampleOfOutputD2M2.csv and nothing extra is added - PofB20 and the
+     * the provided example output and nothing extra is added - PofB20 and the
      * standard deviations live in the detailed file so this one stays exactly
      * the shape he asked for.
      *
-     * FS and Balancing are written as "Yes"/"No", as in his example. Balancing
+     * FS and Balancing are written as "Yes"/"No", as in that example. Balancing
      * "Yes" means Resample; which technique that is belongs in the report and
      * in m2_balancing.csv, not in a column he defined as a boolean.
      */
@@ -361,7 +361,7 @@ public class ClassifierEvaluator {
      *
      * The locale is not cosmetic. On an Italian Windows the default locale
      * formats 0.7312 as "0,7312", and a comma inside a CSV field silently
-     * shifts every later column by one. His example shows two decimals, but
+     * shifts every later column by one. The example shows two decimals, but
      * those numbers are placeholders; four keeps differences that live in the
      * third decimal visible, and rounding for presentation is the reader's job.
      */

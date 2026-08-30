@@ -6,7 +6,7 @@ import weka.classifiers.lazy.IBk;
 import weka.classifiers.trees.RandomForest;
 
 /**
- * The three classifiers named on slide 2 of 15_1_Milestone 2 Classifier.pdf:
+ * The three classifiers named in the Milestone 2 assignment:
  * "Di tre classificatori (RandomForest / NaiveBayes / Ibk)".
  *
  * All three are constructed with Weka's defaults and nothing is tuned. That is
@@ -37,8 +37,8 @@ public enum ClassifierKind {
     }
 
     /**
-     * The string written to the CSV. Spelled exactly as in his example output
-     * 15_2_ExampleOfOutputD2M2.csv - note "Ibk", not "IBk".
+     * The string written to the CSV. Spelled exactly as in the provided
+     * example output - note "Ibk", not "IBk".
      */
     public String label() {
         return label;

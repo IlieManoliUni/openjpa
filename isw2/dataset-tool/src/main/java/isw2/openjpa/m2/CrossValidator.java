@@ -18,7 +18,7 @@ import weka.filters.Filter;
 import weka.filters.supervised.attribute.AttributeSelection;
 
 /**
- * The validation technique named on slide 2 of 15_1_Milestone 2 Classifier.pdf:
+ * The validation technique named in the Milestone 2 assignment:
  * "Utilizzando la tecnica di validazione 10 times 10-folds".
  *
  * Ten independent 10-fold cross validations, seeds 1..10. Within one repetition
@@ -28,7 +28,7 @@ import weka.filters.supervised.attribute.AttributeSelection;
  * shuffles is what turns a single lucky or unlucky partition into an estimate
  * with a spread you can report.
  *
- * FAIRNESS - this is the point his feature-selection slide raises and leaves
+ * FAIRNESS - this is the point the feature-selection material raises and leaves
  * open ("Is the evaluation fair?").
  *
  * Both preprocessing steps are wrapped in FilteredClassifier rather than applied
@@ -64,7 +64,7 @@ public final class CrossValidator {
         KAPPA("Kappa"),
         NPOFB20("NPofB20"),
         /** Not requested by the milestone. Carried so the report can show what
-         *  the normalisation in NPofB20 actually bought - RQ2 of his paper. */
+         *  the normalisation in NPofB20 actually bought - RQ2 of the published study. */
         POFB20("PofB20");
 
         private final String label;
@@ -286,13 +286,13 @@ public final class CrossValidator {
     }
 
     /**
-     * The filter approach from 14_1_Feature Selection.pdf, wired exactly as in
-     * his TestWekaFeatureSelection.java: CfsSubsetEval scores subsets by
+     * The filter approach from the feature-selection material, wired exactly
+     * as in the provided example: CfsSubsetEval scores subsets by
      * correlation with the class minus redundancy between attributes, and
      * GreedyStepwise walks the subset space backwards - starting from all 17
      * attributes and dropping the least damaging one at a time.
      *
-     * Backwards rather than forwards because that is what his example sets
+     * Backwards rather than forwards because that is what the provided example sets
      * (search.setSearchBackwards(true)), and because with only 17 attributes
      * the cost difference is irrelevant while backward search is better at
      * keeping attributes that are useful only in combination.

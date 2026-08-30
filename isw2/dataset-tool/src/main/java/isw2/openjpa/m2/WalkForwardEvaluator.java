@@ -16,7 +16,7 @@ import java.util.Map;
 
 /**
  * The walk-forward counterpart to ClassifierEvaluator: the same twelve cells,
- * evaluated the way his NPofB paper evaluates them.
+ * evaluated the way the effort-aware metrics study evaluates them.
  *
  * Writes:
  *   m2_walkforward.csv        one row per cell, averaged over the 13 steps

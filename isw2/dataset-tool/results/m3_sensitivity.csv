@@ -1,0 +1,7 @@
+FractionCleaned,ClassesCleaned,EstimatedBuggy,ReductionFromBaseline,PercentOfFullEffect
+0.00,0,2983,0,0.000
+0.10,1099,2924,59,10.279
+0.25,2748,2646,337,58.711
+0.50,5495,2419,564,98.258
+0.75,8243,2400,583,101.568
+1.00,10990,2409,574,100.000

@@ -15,7 +15,7 @@ import java.nio.file.Path;
  * Milestone 1, labelling step: retrieve fixed bug tickets from JIRA.
  *
  * Based on RetrieveTicketsID.java provided in class. The query, the paging
- * arithmetic and the field list are his; the provided version prints the ticket
+ * arithmetic and the field list are unchanged; the provided version prints the ticket
  * keys to the console, this one writes the fields Proportion needs to a CSV.
  */
 public class TicketExtractor {

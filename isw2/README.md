@@ -3,10 +3,10 @@
 Coursework for *Ingegneria del Software 2*, Università di Roma Tor Vergata,
 carried out on this fork of Apache OpenJPA.
 
-| Module | Professor | Subject |
-|---|---|---|
-| Final project | Falessi | dataset construction, defect prediction, smells, automated refactoring |
-| Software testing | De Angelis | test design, generation, adequacy, mutation, reliability |
+| Module | Subject |
+|---|---|
+| Final project | dataset construction, defect prediction, smells, automated refactoring |
+| Software testing | test design, generation, adequacy, mutation, reliability |
 
 Project assignment: last-name initial **M** → 13 mod 6 = 1 → **OpenJPA**.
 
@@ -61,7 +61,7 @@ isw2.openjpa.m4       Milestone 4: automated refactoring
 ```
 
 Packages follow the milestones rather than technical concerns, so the code maps onto the
-report and the slides. Shared helpers live in `util` so that no milestone depends on another.
+report and the assignment. Shared helpers live in `util` so that no milestone depends on another.
 
 Run a stage from the `isw2/dataset-tool` directory, for example:
 

@@ -1,6 +1,6 @@
 # Changes to the code provided in class
 
-Milestone 1 slide 7 provides Java code for **release identification** and **ticket
+The Milestone 1 assignment provides Java code for **release identification** and **ticket
 identification** (`getReleaseInfo.java`, `RetrieveTicketsID.java`). This project starts
 from that code.
 
@@ -80,11 +80,11 @@ Recorded so the decisions are visible, and because several are worth discussing 
 | Observation | Why left alone |
 |---|---|
 | `if (releases.size() < 6) return;` - unexplained magic number, silently produces no output | Harmless on OPENJPA (42 releases). Not necessary to change. |
-| The `released` boolean on a JIRA version is ignored; only presence of `releaseDate` is checked | **Verified equivalent on OPENJPA.** Of 51 versions, 42 carry a `releaseDate` and 42 have `released == true`; versions dated-but-not-released = 0, released-but-undated = 0. The two filters select the same set, so his check is not a source of error here. No longer a threat, a measured fact. |
+| The `released` boolean on a JIRA version is ignored; only presence of `releaseDate` is checked | **Verified equivalent on OPENJPA.** Of 51 versions, 42 carry a `releaseDate` and 42 have `released == true`; versions dated-but-not-released = 0, released-but-undated = 0. The two filters select the same set, so the provided check is not a source of error here. No longer a threat, a measured fact. |
 | `readAll()` reads the HTTP response one character at a time | Slower than reading in bulk, but correct. Not a correctness issue. |
 | No handling of HTTP errors - a non-JSON error response fails with an opaque exception | Apache JIRA is public and stable. Not necessary. |
 | Two parallel `HashMap`s instead of one release object | Style, not correctness. |
-| Pre-release versions are treated as releases | Six of the 42 dated versions are pre-releases of 2.0.0: `2.0.0-M1`, `-M2`, `-M3`, `-beta`, `-beta2`, `-beta3`. JIRA marks all six `released: true` with a real date, so the provided filter accepts them. Excluding them would be a filter we invented, and it would change the release count from 42 to 36 and the 66% cut from 14 kept releases to 12. **Decision: follow the provided code and include them.** The provided sample output `QPIDVersionInfo.csv` confirms this is his own practice: its first three rows are `M1`, `M2` and `M2.1` - milestone builds listed as ordinary releases. Consequence recorded as a threat: three snapshots of the same in-development 2.0.0 fall inside the kept third (indices 10, 12, 13), only weeks apart, so those rows are strongly correlated - which compounds the known problem that 10x10 cross-validation mixes releases of the same class. |
+| Pre-release versions are treated as releases | Six of the 42 dated versions are pre-releases of 2.0.0: `2.0.0-M1`, `-M2`, `-M3`, `-beta`, `-beta2`, `-beta3`. JIRA marks all six `released: true` with a real date, so the provided filter accepts them. Excluding them would be a filter we invented, and it would change the release count from 42 to 36 and the 66% cut from 14 kept releases to 12. **Decision: follow the provided code and include them.** The provided sample output the provided sample output confirms this is the reference practice: its first three rows are `M1`, `M2` and `M2.1` - milestone builds listed as ordinary releases. Consequence recorded as a threat: three snapshots of the same in-development 2.0.0 fall inside the kept third (indices 10, 12, 13), only weeks apart, so those rows are strongly correlated - which compounds the known problem that 10x10 cross-validation mixes releases of the same class. |
 
 ---
 
@@ -129,7 +129,7 @@ The Milestone 1 workflow says *"Ignore last 66% of releases"*. "Last" means the 
 **recent** 66%; the oldest third is kept. Releases 1-14 (2006-2010) are analysed,
 releases 15-42 are discarded.
 
-Justification is `10_Snoring.pdf`, which exists to motivate exactly this rule:
+The justification is the course material on snoring, which exists to motivate exactly this rule:
 
 - *"It is possible that a defect is only discovered or fixed several releases after its
   introduction"* (sleeping defect / dormant bug).
@@ -156,9 +156,9 @@ of snoring classes.
 
 ## Provided example outputs, and how we follow them
 
-Two example files ship with the slides. Neither is code; both define an expected format.
+Two example files are provided with the assignment. Neither is code; both define an expected format.
 
-### `11_Milestone 1 - Dataset creation.csv` - expected M1 dataset
+### the provided example dataset - expected M1 dataset
 
 16,339 rows over 10 versions, 20 columns:
 
@@ -168,22 +168,22 @@ MAX_LOC_added, AVG_LOC_added, Churn, MAX_Churn, AVG_Churn, ChgSetSize, MAX_ChgSe
 AVG_ChgSet, Age, WeightedAge, Buggy
 ```
 
-Two ways it differs from the Milestone 1 slide, and what we do about each:
+Two ways it differs from the Milestone 1 assignment, and what we do about each:
 
 | Difference | Decision |
 |---|---|
-| The example has **no NSmells column** and no project-name column; the slide requires both (NSmells is needed by M3 and M4). | Follow the **slide**. The example predates this year's NSmells requirement. |
-| 5,046 of its 16,339 rows are **not Java files** (`.gitignore`, `LICENSE`, `.travis.yml`, `CHANGELOG.asciidoc`, `DISCLAIMER`). The slide workflow says "For each java class". | Follow the **slide**: `.java` only. Recorded because it explains why our row counts do not scale like his. |
-| Its `Method Name` column is present but empty in every row. | Class-level granularity, as the slide specifies. |
+| The example has **no NSmells column** and no project-name column; the assignment requires both (NSmells is needed by M3 and M4). | Follow the **assignment**. The example predates this year's NSmells requirement. |
+| 5,046 of its 16,339 rows are **not Java files** (`.gitignore`, `LICENSE`, `.travis.yml`, `CHANGELOG.asciidoc`, `DISCLAIMER`). The assignment says "For each java class". | Follow the **assignment**: `.java` only. Recorded because it explains why our row counts do not scale like the reference. |
+| Its `Method Name` column is present but empty in every row. | Class-level granularity, as the assignment specifies. |
 
 **Adopted from it:** the exact metric column names (`LOC_touched`, `NR`, `NFix`, `NAuth`,
 `MAX_LOC_added`, `AVG_LOC_added`, `MAX_Churn`, `AVG_Churn`, `ChgSetSize`, `MAX_ChgSet`,
-`AVG_ChgSet`, `Age`, `WeightedAge`), so our output is directly comparable to his.
+`AVG_ChgSet`, `Age`, `WeightedAge`), so our output is directly comparable to the reference.
 
 Its values are synthetic - it reports `.gitignore` as having 1.6e7 lines of code - so it is a
 format template, not reference data.
 
-### `15_2_ExampleOfOutputD2M2.csv` - expected M2 results table
+### the provided example output - expected M2 results table
 
 ```
 Dataset,Classifier,FS,Balancing,Precision,Recall,AUC,Kappa,NPofB20
@@ -191,12 +191,12 @@ Dataset,Classifier,FS,Balancing,Precision,Recall,AUC,Kappa,NPofB20
 
 `FS` and `Balancing` are **Yes/No**, so the table is 3 classifiers x 2 x 2 = **12 rows**.
 Balancing deck 13_1 presents three techniques (SpreadSubsample, Resample, SMOTE); the
-expected output has room for one. We therefore report his 12-row table with a documented
+expected output has room for one. We therefore report the required 12-row table with a documented
 choice for "Balancing = Yes", and give the three-way comparison as an additional table.
 
 ### Confirmation from the provided example dataset
 
-`11_Milestone 1 - Dataset creation.csv` is built on Apache **TinkerPop** (identifiable from
+the provided example dataset is built on Apache **TinkerPop** (identifiable from
 paths such as `giraph-gremlin/src/main/java/org/apache/tinkerpop/...`). It contains 10
 versions, renumbered 1..10. Three independent signals establish that version 1 is the
 *oldest* release analysed, not the newest:
@@ -211,13 +211,13 @@ The codebase also grows monotonically, 1,369 -> 2,116 files.
 
 The direction is therefore settled: index 1 is the oldest release analysed, so the rule is
 **keep the oldest third, discard the most recent 66%** - the same reading the snoring paper
-argues for, reached from his practice rather than his rationale.
+argues for, reached from the reference practice rather than its stated rationale.
 
 **The proportion is a separate question, and the example does not confirm it.** TinkerPop
 has 77 dated releases in JIRA today; ten were kept, which is 13%, not 33%. Two factors
 explain the gap. The example was built years ago, when the denominator was smaller. And -
-see below - his date-keyed code collapses same-date releases, which shrinks the numerator.
-What binds this project is the slide text ("Ignore last 66% of releases"), applied literally:
+see below - the provided date-keyed code collapses same-date releases, which shrinks the numerator.
+What binds this project is the assignment text ("Ignore last 66% of releases"), applied literally:
 42 OpenJPA releases, keep the first 14.
 
 ### The provided example dataset itself exhibits the C2 defect
@@ -233,12 +233,12 @@ TinkerPop's first twelve dated releases contain three same-date pairs, because 3
 
 Collapsing each pair to one entry, as date-keying does, makes version 6 the last
 pre-graduation date (2016-04-08) and version 7 the first post-graduation one (2016-07-18,
-when the `-incubating` suffix was dropped). His dataset shows `DISCLAIMER` - the file Apache
+when the `-incubating` suffix was dropped). The reference dataset shows `DISCLAIMER` - the file Apache
 requires of incubating projects - in versions **1-6** and absent from **7** onward, matching
 that collapsed numbering exactly. Had both members of each pair been kept, version 7 would
 still be `3.2.0-incubating` and would still carry the `DISCLAIMER`.
 
-His ten versions therefore span thirteen actual TinkerPop releases. This is strong
+Its ten versions therefore span thirteen actual TinkerPop releases. This is strong
 corroboration rather than proof - the alignment of the two boundaries is hard to attribute
 to coincidence, but the example could in principle have been built another way.
 
@@ -339,7 +339,7 @@ quoted in the report cannot silently drift from the data.
 
 ## Proportion (Total) — no provided code
 
-Formulas are taken verbatim from `8_Presentation Proportion.pdf`:
+Formulas are taken verbatim from the Proportion material:
 
 ```
 P            = (FV - IV) / (FV - OV)
@@ -350,7 +350,7 @@ and the consistency rule from the same deck, RQ1: *"is the AV consistent, i.e., 
 oldest AV not after the OV?"* — that is, `IV <= OV`.
 
 The deck names three ways to compute P (Cold Start, Increment, Moving Window); none is
-"Total". "Total" comes from the Milestone 1 slide, which defines it: *"compute and use P on
+"Total". "Total" comes from the Milestone 1 assignment, which defines it: *"compute and use P on
 all tickets"* — one P over the whole ticket set.
 
 `P >= 1` is structural, not an anomaly: consistency forces `IV <= OV`, hence
@@ -494,7 +494,7 @@ The Milestone 1 metric list defines two metrics with identical wording:
 > **Churn***: sum over revisions of added and deleted LOC.
 
 Read literally these are the same quantity. The provided example dataset
-(`11_Milestone 1 - Dataset creation.csv`) shows they are not:
+(the provided example dataset) shows they are not:
 
 ```
 Churn == 2*LOC_added - LOC_touched    holds for 16,242 / 16,339 rows (99.4%)
@@ -505,13 +505,13 @@ rows with Churn > LOC_touched         0
 Rearranging `Churn = 2·added − touched` gives `touched = added + deleted` and
 `Churn = added − deleted`. The 567 negative values confirm it: a sum of two
 non-negative quantities cannot be negative. The 97 rows that miss are large values
-where his rounding to three significant figures exceeds the tolerance.
+where the reference rounding to three significant figures exceeds the tolerance.
 
 **Adopted:** `LOC_touched = Σ(added + deleted)`, `Churn = Σ(added − deleted)`.
 
 Two further ambiguities resolved from the same file:
 
-| Metric | Slide text | What the data shows | Adopted |
+| Metric | Assignment text | What the data shows | Adopted |
 |---|---|---|---|
 | `Age` | "age of release" | 328 distinct values among the 1,369 rows of version 1 | age of the **class** at the release, not of the release |
 | `WeightedAge` | "age of release weighted by LOC touched" | 731 distinct values in version 1, minimum 0 | `Σ(age_i · touched_i) / Σ(touched_i)` over revisions |
@@ -673,7 +673,7 @@ WeightedAge,NSmells,Buggy
 attribute with 14,769 values, and `Version` would let a classifier learn "later release =
 buggier", which is an artefact of snoring rather than a property of the code. `Buggy` is
 declared `{no,yes}` so that `yes` is the positive class for Weka's `areaUnderROC(1)`, the
-call used in the provided `TestWekaEasy` example.
+call used in the provided evaluation example.
 
 ### How many classes per release, and are they stable?
 
@@ -730,14 +730,14 @@ data rather than on a proxy.
 
 ## Feature set: what is included, and what is not
 
-The Milestone 1 slide asks for *"About 20 features + NSmells"* and then enumerates **16**
-class metrics. All 16 are implemented, under his exact column names, plus NSmells - **17
-features**. The gap between "about 20" and 17 is his phrasing, not an omission: every metric
+The Milestone 1 assignment asks for *"About 20 features + NSmells"* and then enumerates **16**
+class metrics. All 16 are implemented, under the specified column names, plus NSmells - **17
+features**. The gap between "about 20" and 17 is the assignment's phrasing, not an omission: every metric
 he names is present.
 
 ### The Kamei commit metrics are deliberately not included
 
-The slide also lists an optional commit-metric set - `NS, ND, NF, Entropy, LA, LD, LT, FIX,
+The assignment also lists an optional commit-metric set - `NS, ND, NF, Entropy, LA, LD, LT, FIX,
 NDEV, AGE, NUC, EXP, REXP, SEXP` - with the instruction *"Include only what you use; justify."*
 They are not included, for three reasons:
 
@@ -751,16 +751,16 @@ They are not included, for three reasons:
 3. **The three that are genuinely new** - `Entropy`, `NUC` and the developer-experience trio
    `EXP`/`REXP`/`SEXP` - would need a developer-history model the assignment does not ask for.
 
-The set actually used is the one his own example dataset uses, which contains exactly these
+The set actually used is the one the provided example dataset uses, which contains exactly these
 16 columns and no commit metrics.
 
 ## Milestone 1 completeness check
 
-| Requirement (slide) | Status |
+| Requirement | Status |
 |---|---|
 | Project via the last-name algorithm | OPENJPA |
 | Columns: project, class, release, features + NSmells, bugginess | all present |
-| The 16 named class metrics | 16/16, his column names |
+| The 16 named class metrics | 16/16, the specified column names |
 | Kamei commit metrics | omitted, justified above |
 | Releases and dates | 42 |
 | Ignore the last 66% | 14 kept (oldest third) |
@@ -781,7 +781,7 @@ attribute last and declared `{no,yes}`.
 
 # Milestone 2 — classifier accuracy
 
-Slide 2 of `15_1_Milestone 2 Classifier.pdf`:
+The Milestone 2 assignment states:
 
 > Compare l'accuratezza (Precision/Recall/AUC/Kappa/NPofB20), di tre classificatori
 > (RandomForest / NaiveBayes / Ibk), sul progetto selezionato precedentemente,
@@ -793,10 +793,10 @@ examples on Weka's `breast-cancer` sample data, plus one expected output format.
 
 | Provided file | What it shows | How it is used here |
 |---|---|---|
-| `15_3_TestWekaEasy.txt` | load ARFF, set class index, build, evaluate, read `areaUnderROC(1)` and `kappa()` | the evaluation idiom, including `setClassIndex(numAttributes() - 1)` and the positive-class index `1` |
-| `13_3_TestWekaSampling.java` | `SpreadSubsample` / `Resample` / `SMOTE` inside a `FilteredClassifier` | the balancing wiring, adopted as-is |
-| `14_3_TestWekaFeatureSelection.java` | `CfsSubsetEval` + `GreedyStepwise(backwards)` via the `AttributeSelection` filter | the feature-selection wiring, with the change in M2-C2 |
-| `15_2_ExampleOfOutputD2M2.csv` | the required column set and row order | reproduced exactly; its numbers are placeholders (e.g. AUC 0.73 with Kappa 0.72) and are not targets |
+| the provided evaluation example | load ARFF, set class index, build, evaluate, read `areaUnderROC(1)` and `kappa()` | the evaluation idiom, including `setClassIndex(numAttributes() - 1)` and the positive-class index `1` |
+| the provided sampling example | `SpreadSubsample` / `Resample` / `SMOTE` inside a `FilteredClassifier` | the balancing wiring, adopted as-is |
+| the provided feature-selection example | `CfsSubsetEval` + `GreedyStepwise(backwards)` via the `AttributeSelection` filter | the feature-selection wiring, with the change in M2-C2 |
+| the provided example output | the required column set and row order | reproduced exactly; its numbers are placeholders (e.g. AUC 0.73 with Kappa 0.72) and are not targets |
 
 Same rule as Milestone 1: **change only what is provably necessary, and record it here.**
 
@@ -804,13 +804,13 @@ Same rule as Milestone 1: **change only what is provably necessary, and record i
 
 ## Changes made
 
-### M2-C1 - `Resample -Z` and `SMOTE -P`: the formula on the balancing slide sits under the wrong bullet
+### M2-C1 - `Resample -Z` and `SMOTE -P`: the formula in the balancing material sits under the wrong heading
 
 | | |
 |---|---|
-| Source | `13_1_Balancing.pdf`, slide 9 |
+| Source | the balancing material |
 | Printed | "**Oversampling** - noReplacement=false, biasToUniformClass=1.0, and sampleSizePercent=Y, `Y = 100 * (majority - minority)/minority`. Example for the diabetes data: `Resample -B 1.0 -Z 130.3`" |
-| Problem | For Weka's `diabetes.arff` (768 rows: 500 negative, 268 positive) the printed formula gives `100*(500-268)/268 = 86.6`, not the 130.3 of the slide's own example. The two disagree. |
+| Problem | For Weka's `diabetes.arff` (768 rows: 500 negative, 268 positive) the printed formula gives `100*(500-268)/268 = 86.6`, not the 130.3 of the material's own worked example. The two disagree. |
 | Resolution | The example is correct for `Resample`; the formula is correct for `SMOTE`. It has been typed one bullet too high. |
 
 `Resample -Z` is *sample size as a percentage of the input*. To end up with `majority` rows
@@ -818,7 +818,7 @@ of each of the `k` classes, the output must hold `k * majority` rows:
 
 ```
 Z = 100 * k * majority / total
-diabetes: 100 * 2 * 500 / 768 = 130.2      matches the slide's 130.3
+diabetes: 100 * 2 * 500 / 768 = 130.2      matches the stated 130.3
 OPENJPA : 100 * 2 * 11775 / 14769 = 159.46
 ```
 
@@ -835,7 +835,7 @@ That is the printed formula, and it is exact. It belongs to the SMOTE bullet one
 
 Why the example rather than the formula was followed: with `-B 1.0` **every** value of `-Z`
 produces a balanced result, because `-Z` only sets the total size. The discriminator is the
-slide's own heading. On diabetes, `-Z 130.2` keeps all 500 majority rows (pure
+section's own heading. On diabetes, `-Z 130.2` keeps all 500 majority rows (pure
 oversampling); `-Z 86.6` produces 665 rows, 332 per class, silently discarding 168 majority
 rows - a hybrid over/under sample, which is the *other* bullet's job. On OPENJPA the
 printed reading would have discarded 5,380 real non-buggy classes while the report called
@@ -856,17 +856,17 @@ hybrid. Reverting to the printed reading is one line in `Balancing.oversamplingP
 
 | | |
 |---|---|
-| File | `14_3_TestWekaFeatureSelection.java` |
+| File | the provided feature-selection example |
 | Original | `filter.setInputFormat(noFilterTraining); Instances filteredTraining = Filter.useFilter(noFilterTraining, filter); ... Instances testingFiltered = Filter.useFilter(testingNoFilter, filter);` |
 | Changed to | `FilteredClassifier` wrapping the `AttributeSelection` filter, rebuilt per fold |
-| Necessary because | The provided code is a **holdout** example, and as written for a holdout it is correct - the subset is learned from `noFilterTraining` and merely applied to the test set. Its lab slide, however, instructs "Perform 10-fold cross validation". Carrying the code over unchanged means fitting the subset once on all 14,769 rows and then cross-validating, so the 1,477 rows being predicted in each fold helped choose the attributes they are scored on. That is selection leakage. |
+| Necessary because | The provided code is a **holdout** example, and as written for a holdout it is correct - the subset is learned from `noFilterTraining` and merely applied to the test set. The corresponding exercise, however, instructs "Perform 10-fold cross validation". Carrying the code over unchanged means fitting the subset once on all 14,769 rows and then cross-validating, so the 1,477 rows being predicted in each fold helped choose the attributes they are scored on. That is selection leakage. |
 
 `FilteredClassifier` fits its filter on exactly the data passed to `buildClassifier` - the
 training fold - and at prediction time applies the attribute filter to the incoming
 instance while letting supervised *instance* filters pass it through untouched. One wrapper
 therefore makes both preprocessing steps fold-local.
 
-The balancing example, `13_3_TestWekaSampling.java`, already uses `FilteredClassifier` and
+The balancing example, the provided sampling example, already uses `FilteredClassifier` and
 needed no change. Only the feature-selection example did.
 
 Nesting order used, outermost first:
@@ -888,7 +888,7 @@ learner.
 
 | | |
 |---|---|
-| File | `14_3_TestWekaFeatureSelection.java` |
+| File | the provided feature-selection example |
 | Original | one `Evaluation evalClass` is created, used for the unfiltered model, then reused for the filtered model without being reset |
 | Changed to | a new `Evaluation` per repetition (cross validation) and per step (walk-forward) |
 | Necessary because | `Evaluation.evaluateModel` **accumulates**. In the provided example the line printed as "AUC filtered" is computed over both models' predictions pooled together, not over the filtered model alone. Any comparison drawn from those two printouts is between a model and a mixture containing itself. |
@@ -926,17 +926,17 @@ attribute. Masking makes leakage impossible by construction rather than by trust
 
 | Class | Why it exists |
 |---|---|
-| `Npofb` | Weka has no effort-aware measure. `Evaluation` provides precision, recall, AUC and kappa; PofB20 and NPofB20 had to be implemented from the definitions in `12_Npofb20.pdf`. |
+| `Npofb` | Weka has no effort-aware measure. `Evaluation` provides precision, recall, AUC and kappa; PofB20 and NPofB20 had to be implemented from the published definitions. |
 | `CrossValidator` | Weka's `Evaluation.crossValidateModel` does a single 10-fold pass and exposes no per-instance probabilities, so it can neither do "10 times" nor feed NPofB20. |
 | `WalkForward` | Not required by the milestone; added as a second table, see M2-T1. |
-| `Balancing`, `ClassifierKind` | The filter and classifier configurations named on the slides, in one place each. |
+| `Balancing`, `ClassifierKind` | The filter and classifier configurations named in the assignment, in one place each. |
 | `ClassifierEvaluator`, `WalkForwardEvaluator` | Drive the experiment matrix and write the CSVs. |
 
 ### NPofB20 as implemented
 
 Rank the cross-validated predictions by `P(buggy) / LOC` descending, walk down accumulating
 LOC until 20% of the total is consumed, and report `bugs found / bugs present`. PofB20 is
-the same walk ranked by `P(buggy)` alone. Decisions taken where the slide is silent:
+the same walk ranked by `P(buggy)` alone. Decisions taken where the assignment is silent:
 
 | Decision | Rationale |
 |---|---|
@@ -951,7 +951,7 @@ the same walk ranked by `P(buggy)` alone. Decisions taken where the slide is sil
 | Observation | Left alone because |
 |---|---|
 | No classifier is tuned; all three use Weka defaults | The milestone asks which classifier is most accurate. Tuning one by hand would measure how much attention each received. Proper tuning needs an inner validation loop, which is a different experiment. |
-| `IBk` runs with k=1, its default | The slides name "Ibk" with no parameters. Consequences are recorded in M2-T3 rather than engineered away. |
+| `IBk` runs with k=1, its default | The assignment names "Ibk" with no parameters. Consequences are recorded in M2-T3 rather than engineered away. |
 | 10 times 10-fold cross validation, though it ignores release order | It is what the milestone specifies. Its consequence is measured and reported in M2-T1, and walk-forward is added beside it rather than in place of it. |
 | `GreedyStepwise` searches backwards | `search.setSearchBackwards(true)` is what the provided example sets. |
 | Balancing "Yes" is one technique, not three | The expected output has a single Yes/No column. The three-way comparison is a separate table. |
@@ -966,7 +966,7 @@ Validation: 10 times 10-fold, seeds 1..10.
 
 ## The required table
 
-`results/m2_results.csv`, columns and row order as in `15_2_ExampleOfOutputD2M2.csv`.
+`results/m2_results.csv`, columns and row order as in the provided example output.
 
 | Balancing | FS | Classifier | Precision | Recall | AUC | Kappa | NPofB20 |
 |---|---|---|---|---|---|---|---|
@@ -1005,7 +1005,7 @@ so the likelihood ratio is astronomically far from 1 and the class prior is a ro
 error against it. Moving the prior from 0.20/0.80 to 0.50/0.50 shifts a decision that was
 never close.
 
-**NPofB20 replicates RQ2 of `12_Npofb20.pdf`.** For RandomForest, NPofB20 0.667 against
+**NPofB20 replicates RQ2 of the effort-aware metrics study.** For RandomForest, NPofB20 0.667 against
 PofB20 0.234 - **2.85x** the bugs found for the same reading effort, by ranking on
 `P/LOC` instead of `P`.
 
@@ -1063,7 +1063,7 @@ keeps `AVG_Churn` (100) and `MAX_Churn` (81) while dropping raw `Churn` (10), an
 ## Walk-forward (not required by the milestone)
 
 `results/m2_walkforward.csv`. Train on releases 1..k, test on release k+1, k = 1..13. The
-technique used in the RQ2 methodology of `12_Npofb20.pdf`; see M2-T1 for why it was added.
+technique used in the RQ2 methodology of the effort-aware metrics study; see M2-T1 for why it was added.
 
 AUC, no feature selection, no balancing:
 
@@ -1084,7 +1084,7 @@ stronger replication of RQ2 than under cross validation.
 ## M2-T1 The cross-validation figures are inflated by file identity
 
 An AUC of 0.960 is far outside the 0.70-0.80 range reported in the defect-prediction
-literature, including in Falessi's own papers. The cause was measured rather than assumed.
+literature, including in the published literature. The cause was measured rather than assumed.
 
 **Not label leakage.** If a metric encoded the label, that metric alone would predict it.
 Single-feature AUC over all 14,769 rows tops out at `Churn` 0.746 and `LOC` 0.746;
@@ -1160,7 +1160,7 @@ a temporal protocol, but date order and lineage diverge in this project.
 | Threat | Effect |
 |---|---|
 | No hyper-parameter tuning | The comparison is between the three algorithms at their defaults, not at their best. |
-| One project | Every result is OPENJPA-specific; his exam question about the best classifier varying by dataset cannot be answered from one. |
+| One project | Every result is OPENJPA-specific; the question about the best classifier varying by dataset cannot be answered from one. |
 | Snoring, inherited from M1 | Only the oldest 14 of 42 releases are used, so the labels themselves are the ones the 66% rule leaves. |
 | NPofB20 uses `LOC` as the effort proxy | Lines are a proxy for inspection effort, not effort itself. |
 | Precision/recall use Weka's 0.5 threshold | The threshold is not tuned; AUC and NPofB20 are threshold-free and are the more robust comparisons. |
@@ -1169,13 +1169,13 @@ a temporal protocol, but date order and lineage diverge in this project.
 
 # Milestone 2 completeness check
 
-| Requirement (slide 2) | Status |
+| Requirement | Status |
 |---|---|
 | Precision | 12/12 rows |
 | Recall | 12/12 rows |
 | AUC | 12/12 rows |
 | Kappa | 12/12 rows |
-| NPofB20 | 12/12 rows, implemented from `12_Npofb20.pdf` |
+| NPofB20 | 12/12 rows, implemented from the published definitions |
 | RandomForest | Weka defaults |
 | NaiveBayes | Weka defaults |
 | Ibk | Weka defaults, k=1 |
@@ -1183,8 +1183,361 @@ a temporal protocol, but date order and lineage diverge in this project.
 | 10 times 10-fold validation | seeds 1..10, stratified, pooled per repetition |
 | Filter as feature selection | `CfsSubsetEval` + `GreedyStepwise(backwards)`, fold-local |
 | Filter as balancing | `Resample -B 1.0 -Z 159.46`, fold-local |
-| Output format | columns and row order of `15_2_ExampleOfOutputD2M2.csv` |
+| Output format | columns and row order of the provided example output |
 
 Beyond the requirement: the three-way balancing comparison, attribute-selection stability
 over the 100 folds, PofB20 alongside NPofB20, per-repetition standard deviations, and the
 walk-forward table.
+
+## Does the best classifier change with the number of releases?
+
+The Milestone 2 assignment asks whether the best classifier varies by
+dataset, number of releases, or metric. The number-of-releases part is measurable from the
+walk-forward runs: step k trains on releases 1..k, so the thirteen steps are thirteen
+dataset sizes, from one release (932 rows) to thirteen (13,714 rows). Counting which
+classifier wins each metric at each size, feature selection and balancing both off:
+
+| Metric | RandomForest | NaiveBayes | Ibk | Winner changes? |
+|---|---|---|---|---|
+| AUC | **13 / 13** | - | - | No |
+| NPofB20 | **13 / 13** | - | - | No |
+| Precision | 12 / 13 | 1 | - | Once |
+| Kappa | 11 / 13 | 2 | - | Twice |
+| Recall | 9 / 13 | 2 | 2 | **Yes** |
+
+The answer is conditional on the metric. On the threshold-free metrics - AUC and NPofB20 -
+the best classifier never changes at any training size. On the threshold-dependent metrics
+it does: RandomForest wins recall in only nine of thirteen sizes.
+
+The cause is that precision, recall and kappa are read at Weka's fixed 0.5 posterior
+threshold. With little training data the classifiers' probabilities are poorly calibrated,
+so where each sits relative to that fixed cut varies; AUC and NPofB20 rank rather than
+threshold and are unaffected. Two of the four changes fall on step 10, the branch-crossing
+step of M2-T4.
+
+With feature selection enabled even AUC becomes unstable (RandomForest 10/13, Ibk 2,
+NaiveBayes 1), because feature selection is precisely the intervention that lifts Ibk into
+contention.
+
+---
+
+# Milestone 3 — what if there were no smells?
+
+The Milestone 3 assignment, titled "How many buggy classes could have been prevented
+by having zero smells?", sets out seven steps, of which the first two are Milestones 1 and 2:
+
+```
+3. Choose the best classifier, aka BClassifier
+5. Create   B+ : portion of A with NSmells > 0
+            C  : portion of A with NSmells = 0
+            B  : B+ manipulated with feature NSmells set to 0
+6. Train BClassifier on A, aka BClassifierA
+7. Predict A, B, B+, C and create a Table like the reference one
+```
+
+No code is provided. The method is that of the "What if I had no smells?" study,
+presented in the accompanying study; the table shape is taken from its results table.
+
+## The datasets
+
+| Dataset | Rows | Buggy | Rate | Definition |
+|---|---|---|---|---|
+| A | 14,769 | 2,994 | 20.3% | the Milestone 1 dataset, unmodified |
+| B+ | 10,990 | 2,580 | 23.5% | the portion of A with `NSmells > 0` |
+| C | 3,779 | 414 | 11.0% | the portion of A with `NSmells = 0` |
+| B | 10,990 | - | - | B+ with `NSmells` set to 0 — counterfactual |
+
+B+ and C partition A, and both the row counts and the buggy counts sum correctly. B has no
+ground-truth column and never can: it describes code that was never written. That is why
+the results table carries an "actual" column for A, B+ and C but only an "estimated" column
+for B, exactly as in the reference table.
+
+An implementation note that is a real trap rather than a detail: Weka's `new Instances(x)`
+copy constructor **shares the underlying Instance objects**. Building B that way and then
+zeroing `NSmells` would have zeroed B+ as well, so the analysis would have compared B
+against itself and reported an effect of exactly zero — a number that looks like a finding.
+B is built by `add()`, which copies, and `WhatIfDatasets.check()` asserts afterwards that
+B+ still has its smells.
+
+## BClassifier
+
+Milestone 2 answered step 3: **RandomForest**, most accurate on every metric in all four
+preprocessing settings, under both 10x10 cross validation and walk-forward.
+
+It is used with no feature selection and no balancing — also its best cell in the Milestone
+2 table. Both choices matter here for reasons beyond accuracy:
+
+- **no feature selection**, because the analysis works by manipulating `NSmells`, so the
+  model must be one that reads it. (CFS keeps `NSmells` in 100/100 folds, so this is belt
+  and braces, but it removes the question.)
+- **no balancing**, because the analysis *counts* predicted-buggy rows. Balancing shifts
+  the decision boundary toward the minority class and would inflate every count in the
+  table, putting the estimates on a different scale from the actual counts beside them.
+
+## M3-C1 — the drop formula in the reference study mixes actual with estimated
+
+The study states:
+
+> The drop is a substantial 42% ((66-38)/66). This means an overall reduction of 20%
+> ((66-38)/135) in the number of defective files on the whole dataset A.
+
+In the reference table, 66 is the **actual** buggy count of B+ and 38 is the **estimated** buggy
+count of B. The ratio therefore compares ground truth against a model output, and folds the
+model's own error into what is reported as the effect of the smells — the reference model estimates
+57 for B+ where the truth is 66, a 14% under-prediction that lands entirely inside the
+"drop".
+
+The within-model comparison, `estimated(B+) - estimated(B)`, takes both sides from the same
+model so its bias cancels and what remains is attributable to the manipulated feature alone.
+
+Both are computed. On OPENJPA they agree to within 0.1 percentage points, because
+RandomForest reproduces B+ almost exactly (2,577 estimated against 2,580 actual), so the
+ambiguity does not affect the reported result. That formula is reported as primary because
+it is what the milestone asks for.
+
+## Results
+
+`results/m3_whatif.csv`, shaped as the reference table.
+
+| | Rows | Actual | Estimated | Expected |
+|---|---|---|---|---|
+| A | 14,769 | 2,994 | 2,983 | 2,953.7 |
+| B+ | 10,990 | 2,580 | 2,577 | 2,540.2 |
+| B | 10,990 | - | **2,003** | 2,221.4 |
+| C | 3,779 | 414 | 406 | 413.5 |
+
+Additivity holds on both columns: 2,580 + 414 = 2,994 and 2,577 + 406 = 2,983, mirroring
+the reference 66 + 69 = 135 and 57 + 63 = 120.
+
+"Expected" is not in the reference table. It is the sum of the predicted probabilities rather than a
+count of rows over the 0.5 threshold, so it does not jump when a class sits at 0.49 instead
+of 0.51. It agrees closely with the thresholded count throughout, which is evidence that the
+counts are not an artefact of where the threshold falls.
+
+### How many buggy classes could have been prevented?
+
+| Question | Value | Basis |
+|---|---|---|
+| In total | **577** | 2,580 actual buggy in B+ minus 2,003 estimated buggy in B |
+| In proportion | **19.3%** | of the 2,994 buggy classes in A |
+| Out of the preventable ones | **22.4%** | of the 2,580 buggy classes that have smells |
+| (within-model) | 574, 22.3% | estimated B+ minus estimated B |
+
+### Is BClassifier accurate?
+
+The first of the two questions the assignment asks of the results. It must **not** be answered from the A row of
+the table above: that row is resubstitution, the model scored on the data it was fitted on,
+and its 2,983-against-2,994 agreement measures memorisation rather than accuracy.
+
+The answer is the cross-validated performance of exactly this configuration - RandomForest,
+no feature selection, no balancing - measured in Milestone 2:
+
+| | Precision | Recall | AUC | Kappa | NPofB20 |
+|---|---|---|---|---|---|
+| 10 times 10-fold | 0.867 | 0.731 | **0.960** | 0.746 | 0.667 |
+| walk-forward | 0.799 | 0.594 | **0.883** | 0.585 | 0.529 |
+
+So: yes, and by a clear margin over the alternatives - RandomForest was the most accurate of
+the three classifiers on every metric in all four preprocessing settings, under both
+validation protocols, with a gap to NaiveBayes of roughly 116 standard deviations.
+
+Two qualifications carry over from Milestone 2 and must travel with the figure. The 0.960 is
+inflated by file recurrence (M2-T1): a predictor given only a file's identity scores AUC
+0.913 on this dataset, and the walk-forward 0.883 is the more conservative estimate. And
+`Ibk` aside, none of the three classifiers was tuned.
+
+For the purpose of Milestone 3 the relevant point is narrower than "is it good": the model
+is being used as an instrument to answer a counterfactual, so what matters is that it is
+substantially better than chance and that it actually uses `NSmells`. It is - `NSmells`
+correlates 0.310 with defectiveness, is selected by CFS in 100 of 100 folds, and zeroing it
+moves 577 predictions.
+
+### The finding the method exists to produce
+
+The naive reading of the data and the what-if answer differ by a factor of 1.7.
+
+| | Buggy rate | Implied effect of smells |
+|---|---|---|
+| B+ smelly classes, actual | 23.5% | |
+| C clean classes, actual | 11.0% | naive: smells **2.14x** the defect rate |
+| B same classes, smells removed, estimated | **18.2%** | what-if: smells **1.29x** |
+
+Smelly classes are not only smellier, they are four and a half times larger — mean `LOC`
+283.5 against 63.0, with `Spearman(LOC, NSmells) = 0.770`. Comparing B+ to C therefore
+credits smells with an advantage that mostly belongs to size.
+
+Of the 12.5-point gap between smelly and clean classes, the what-if attributes **5.2 points
+(42%) to the smells themselves** and 7.3 points (58%) to size, churn and change history.
+Holding every other feature constant is the entire purpose of constructing B, and it changes
+the answer substantially.
+
+## Feature profile
+
+`results/m3_feature_profile.csv`. The what-if study records this step: "we
+measured for each feature the average value and the correlation with NSmells and
+Defectiveness". Spearman rank correlation is used throughout, because these metrics are
+heavily skewed (`NSmells` runs 0 to 430 with a median of 3) and Pearson would be steered by
+a handful of very large classes while additionally assuming a linearity nothing justifies.
+Ties are given midranks — 3,779 rows are tied at `NSmells = 0` alone.
+
+`NSmells` correlated with itself comes out at exactly 1.000, which is a free check that the
+ranking code is correct.
+
+| Feature | mean A | mean B+ | mean C | r NSmells | r Buggy |
+|---|---|---|---|---|---|
+| `Churn` | 226.9 | 283.3 | 62.9 | 0.769 | **0.343** |
+| `LOC` | 227.1 | 283.5 | 63.0 | **0.770** | 0.342 |
+| `MAX_Churn` | 212.4 | 265.0 | 59.1 | 0.756 | 0.334 |
+| `MAX_LOC_added` | 218.7 | 273.0 | 60.6 | 0.761 | 0.331 |
+| `AVG_Churn` | 29.8 | 34.9 | 14.9 | 0.571 | 0.325 |
+| `AVG_LOC_added` | 48.1 | 56.5 | 23.4 | 0.639 | 0.320 |
+| `NSmells` | 14.5 | 19.5 | 0.0 | 1.000 | 0.310 |
+| `AVG_ChgSet` | 730.1 | 698.9 | 820.7 | −0.300 | **−0.303** |
+| `NFix` | 0.7 | 0.8 | 0.2 | 0.371 | 0.300 |
+| `LOC_added` | 450.1 | 563.5 | 120.6 | 0.718 | 0.290 |
+| `LOC_touched` | 673.4 | 843.6 | 178.3 | 0.668 | 0.257 |
+| `NAuth` | 2.8 | 3.0 | 2.3 | 0.367 | 0.204 |
+| `NR` | 8.0 | 8.8 | 5.7 | 0.387 | 0.164 |
+| `MAX_ChgSet` | 1727.9 | 1734.9 | 1707.6 | −0.001 | −0.072 |
+| `WeightedAge` | 537.2 | 544.1 | 517.3 | 0.042 | −0.063 |
+| `ChgSetSize` | 5887.0 | 5989.6 | 5588.5 | 0.135 | −0.050 |
+| `Age` | 669.7 | 676.3 | 650.5 | 0.034 | −0.036 |
+
+Two things this table establishes.
+
+**The confounding is severe.** Six features correlate with `NSmells` above 0.6. A class with
+smells is, in this project, essentially a *large, heavily churned* class. Any comparison
+between B+ and C is therefore a comparison between large and small classes as much as
+between smelly and clean ones, which is what makes the B counterfactual necessary rather
+than merely interesting.
+
+**This is also the input to Milestone 4**, which asks whether any feature positively
+correlated with bugginess is higher in the refactored class than in the original, and the
+same for negatively correlated ones. Those two sets are, from the last column:
+
+- **positive**: `Churn`, `LOC`, `MAX_Churn`, `MAX_LOC_added`, `AVG_Churn`, `AVG_LOC_added`,
+  `NSmells`, `NFix`, `LOC_added`, `LOC_touched`, `NAuth`, `NR`
+- **negative**: `AVG_ChgSet`, `MAX_ChgSet`, `WeightedAge`, `ChgSetSize`, `Age`
+
+The negative group is weak — the largest magnitude is 0.303 and the rest are below 0.08 —
+so a Milestone 4 conclusion resting on `Age` or `ChgSetSize` moving would be resting on
+noise. Only `AVG_ChgSet` is strong enough to carry an argument.
+
+## Beyond the requirement: partial cleaning
+
+`results/m3_sensitivity.csv`. "Zero smells everywhere" is the upper bound of an engineering
+plan, not a plan. Milestone 4 refactors two classes with an automated tool and will not
+remove every smell. This traces the estimate as progressively more of the smelliest classes
+are cleaned, in descending order of `NSmells` — the order a team with finite time would
+work in, and the same ranking Milestone 4 uses to choose its classes.
+
+| Cleaned | Classes | Estimated buggy | Prevented | Share of full effect |
+|---|---|---|---|---|
+| 0% | 0 | 2,983 | 0 | 0.0% |
+| 10% | 1,099 | 2,924 | 59 | 10.3% |
+| 25% | 2,748 | 2,646 | 337 | 58.7% |
+| 50% | 5,495 | 2,419 | 564 | **98.3%** |
+| 75% | 8,243 | 2,400 | 583 | 101.6% |
+| 100% | 10,990 | 2,409 | 574 | 100.0% |
+
+**Cleaning the smelliest half captures 98% of the entire benefit.** The other 5,495 classes
+contribute essentially nothing. If the result is read as advice, it is that smell removal is
+worth doing on the worst classes and not worth doing anywhere else.
+
+The curve is also **not monotonic** — 75% cleaned prevents more (583) than 100% cleaned
+(574). That is not noise; it is the counterfactual leaving the training distribution, and it
+is quantified in M3-T1 below.
+
+---
+
+# Milestone 3 — threats to validity
+
+## M3-T1 The counterfactual dataset B is partly outside the training distribution
+
+This is the principal threat, and it is measurable rather than hypothetical.
+
+`Spearman(LOC, NSmells) = 0.770`. In the real data, `NSmells = 0` overwhelmingly means
+"small class": the largest class in the whole project that genuinely has zero smells is
+**329 lines**, and the median is 53.
+
+Setting `NSmells = 0` on a large class therefore manufactures a row unlike anything the
+model was trained on:
+
+```
+rows of B larger than C's 95th percentile (126 lines)      5,800   52.8% of B
+rows of B larger than C's 99th percentile (188 lines)      4,331   39.4% of B
+rows of B larger than ANY real zero-smell class (329)      2,506   22.8% of B
+```
+
+Nearly a quarter of B describes code that has no analogue anywhere in the project: classes
+of a size that, in reality, never occurs without smells. Worse, those 2,506 rows have a
+**52.3% buggy rate** against 23.5% for B+ overall — so the manufactured, unprecedented rows
+are exactly the high-risk ones on which the estimate most depends.
+
+A tree ensemble asked to predict outside the region it was fitted on does not fail loudly;
+it returns whatever the nearest leaves happen to say. That is the mechanism behind the
+non-monotonic sensitivity curve: the last classes to be cleaned are the least smelly ones,
+where the manufactured rows are least like anything real, and cleaning them moves the
+estimate the wrong way.
+
+Practical effect on the headline: the maximum is 583 at 75% cleaning against 574 at 100%, a
+1.5% wobble, so the reported 577 is not materially disturbed. But the figure should be read
+as an estimate with a directional uncertainty of a few percent, not as a count.
+
+Mitigation that was not performed: restricting the analysis to classes whose size falls
+inside the range where zero-smell classes actually exist would remove the extrapolation, at
+the cost of discarding the 22.8% of B where most of the estimated effect lives.
+
+## M3-T2 The model is evaluated on its own training data
+
+Step 6 says to train BClassifier on A, and step 7 says to predict A. That is
+resubstitution, and the A row of the results table shows it: 2,983 estimated against 2,994
+actual, a 99.6% reproduction of the training labels.
+
+That number must not be used to answer "Is BClassifier accurate?". The honest accuracy
+figures are the cross-validated ones from Milestone 2 — AUC 0.960 under 10x10 cross
+validation, 0.883 under walk-forward, both of which are themselves subject to the
+file-recurrence caveat of M2-T1.
+
+Training on all of A is nevertheless correct **for this purpose**. The model here is an
+instrument for asking a counterfactual question, not a subject whose generalisation is being
+measured, and it should be fitted on as much data as exists.
+
+## M3-T3 `NSmells` is a count, not a description
+
+Setting `NSmells` to 0 asserts that every smell in a class can be removed, that all smells
+are equally consequential, and that removing them changes nothing else about the class. None
+of the three is true: PMD reports smells of very different severity, and removing a God
+Class genuinely changes `LOC` — which the manipulation holds fixed.
+
+The estimate is therefore an answer to "what if the smell count were zero and nothing else
+moved", which is a narrower question than "what if this code had been written well".
+Milestone 4, which performs an actual refactoring and re-measures the features, is the
+empirical check on this assumption.
+
+## M3-T4 Inherited threats
+
+Everything in Milestone 1 and Milestone 2 propagates: the 66% snoring cut, SZZ's assumptions
+and Proportion's estimate for the injected version, PMD as the smell oracle, and the
+file-recurrence inflation of M2-T1. The what-if result is conditional on all of them.
+
+---
+
+# Milestone 3 completeness check
+
+| Requirement | Status |
+|---|---|
+| 3. Choose the best classifier (BClassifier) | RandomForest, from the Milestone 2 comparison |
+| 5.1 Create B+ (portion of A with NSmells > 0) | 10,990 rows |
+| 5.2 Create C (portion of A with NSmells = 0) | 3,779 rows |
+| 5.3 Create B (B+ with NSmells set to 0) | 10,990 rows, verified not to alias B+ |
+| 6. Train BClassifier on A | RandomForest on all 14,769 rows |
+| 7. Predict A, B, B+, C and produce the table | `results/m3_whatif.csv`, shaped as the reference table |
+| Is BClassifier accurate? | From Milestone 2, not from the A row — see M3-T2 |
+| Prevented, in total | 577 |
+| Prevented, in proportion | 19.3% |
+| Prevented, out of the preventable ones | 22.4% |
+
+Beyond the requirement: the feature profile (which Milestone 4 consumes), the
+within-model comparison alongside the reference formula, the expected-count column, the partial
+cleaning curve, and the quantification of the extrapolation in M3-T1.

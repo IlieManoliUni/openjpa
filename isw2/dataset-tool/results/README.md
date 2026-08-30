@@ -12,7 +12,7 @@ are the answer to the milestone.
 
 ### `m2_results.csv`
 The table Milestone 2 asks for. Columns and row order exactly as in the provided
-`15_2_ExampleOfOutputD2M2.csv`:
+the provided example output:
 
 ```
 Dataset,Classifier,FS,Balancing,Precision,Recall,AUC,Kappa,NPofB20
@@ -35,7 +35,7 @@ gap between two classifiers is larger than the run-to-run noise; the deltas disc
 the report are one to two orders of magnitude above it.
 
 ### `m2_balancing.csv`
-The three techniques from `13_1_Balancing.pdf` compared side by side - none,
+The three techniques from the balancing material compared side by side - none,
 `SpreadSubsample -M 1.0`, `Resample -B 1.0 -Z 159.46`, `SMOTE -P 293.29` - with feature
 selection held off. The milestone collapses this into one Yes/No column; this is the table
 behind the choice. Includes PofB20 next to NPofB20.
@@ -47,7 +47,7 @@ depend on the classifier - the same table results from any run.
 
 ### `m2_walkforward.csv`, `m2_walkforward_steps.csv`
 Not required by Milestone 2. Walk-forward validation - train on releases 1..k, test on
-release k+1 - which is the technique used in the RQ2 methodology of `12_Npofb20.pdf`. The
+release k+1 - which is the technique used in the RQ2 methodology of the effort-aware metrics study. The
 summary file averages the 13 steps; the steps file gives each one with its training size,
 so the learning curve is visible.
 
@@ -77,3 +77,44 @@ partial table - the files here were assembled from two runs.
 
 Everything is seeded (folds 1..10, filters `-S 1`), so the numbers reproduce exactly.
 Roughly three hours on a laptop; IBk and SMOTE dominate.
+
+---
+
+# Milestone 3 results
+
+Produced by `isw2.openjpa.m3.WhatIfEvaluator` from the same Milestone 1 dataset. BClassifier
+is RandomForest, the winner of the Milestone 2 comparison, trained on all of A with no
+feature selection and no balancing.
+
+### `m3_whatif.csv`
+The results table, shaped as the reference table of the what-if study: rows A, B+,
+B and C with their actual and estimated buggy counts. B has no actual value because it is
+counterfactual — it describes code that was never written. The `ExpectedCount` column is not
+in the reference table; it is the sum of predicted probabilities rather than a count over the 0.5
+threshold, and it agrees closely with the thresholded count, which is evidence the counts
+are not an artefact of where the threshold falls.
+
+### `m3_prevention.csv`
+The three figures the milestone asks for — prevented in total, in proportion, and out of the
+preventable ones — computed both with the reference formula and within-model. See M3-C1 in
+the methodology document for why both are reported.
+
+### `m3_feature_profile.csv`
+From the same study: each feature's mean in A, B+ and C, plus its Spearman correlation
+with `NSmells` and with defectiveness, and the sign of that second correlation. This is also
+the input to Milestone 4, which asks whether features positively or negatively correlated
+with bugginess moved after refactoring.
+
+### `m3_sensitivity.csv`
+Beyond the requirement. Estimated defectiveness when only the smelliest fraction of classes
+is cleaned, from 0% to 100%. Cleaning the smelliest half captures 98% of the whole benefit.
+The curve is not monotonic at the top end, which is the counterfactual leaving the training
+distribution — quantified in M3-T1.
+
+## Reproducing
+
+```
+mvn -q exec:java -Dexec.mainClass=isw2.openjpa.m3.WhatIfEvaluator
+```
+
+A couple of minutes: one forest, not a hundred.

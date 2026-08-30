@@ -1,0 +1,7 @@
+Question,Basis,Value,Numerator,Denominator
+In total,actual B+ - estimated B,577,577,
+In proportion,of all buggy classes in A,19.272,577,2994
+Out of the preventable ones,of buggy classes with smells,22.364,577,2580
+In total (within model),estimated B+ - estimated B,574,574,
+In proportion (within model),of all estimated buggy in A,19.242,574,2983
+Out of the preventable (within model),of estimated buggy with smells,22.274,574,2577

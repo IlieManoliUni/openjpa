@@ -14,12 +14,12 @@ import java.util.Map;
 /**
  * Milestone 1, labelling step: "Apply Proportion (Total)".
  *
- * From 8_Presentation Proportion.pdf:
+ * From the Proportion material:
  *     P            = (FV - IV) / (FV - OV)
  *     predicted IV = FV - (FV - OV) * P
  * and an AV is "consistent" when the oldest AV is not after the OV, i.e. IV <= OV.
  *
- * "Total" (Milestone 1 slide) = compute one P over all tickets that have a usable
+ * "Total" (Milestone 1 assignment) = compute one P over all tickets that have a usable
  * IV, then apply it to those that do not.
  *
  * OV is the last release on or before the report date - the released version the
@@ -63,7 +63,7 @@ public class Proportion {
             if (t.fv == 0) { noFv++; continue; }
             if (t.ivFromAv == 0) { continue; }              // no AV: nothing to learn from
 
-            // his consistency rule: the oldest AV must not be after the OV
+            // the consistency rule: the oldest AV must not be after the OV
             if (!(t.ivFromAv <= t.ov && t.ov <= t.fv && t.ivFromAv < t.fv)) {
                 inconsistent++;
                 continue;

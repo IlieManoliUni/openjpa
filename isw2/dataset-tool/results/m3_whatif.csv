@@ -1,0 +1,5 @@
+Project,Dataset,Rows,Actual,Estimated,ExpectedCount,Definition
+OPENJPA,A,14769,2994,2983,2953.7,the original dataset
+OPENJPA,B+,10990,2580,2577,2540.2,portion of A with NSmells > 0
+OPENJPA,B,10990,,2003,2221.4,B+ with NSmells set to 0 - counterfactual, no ground truth
+OPENJPA,C,3779,414,406,413.5,portion of A with NSmells = 0
