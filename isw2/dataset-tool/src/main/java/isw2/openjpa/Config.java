@@ -16,4 +16,9 @@ public final class Config {
 
     /** Falessi M1: "ignore last 66% of releases" -> keep the first third. */
     public static final double KEEP_FRACTION = 1.0 / 3.0;
+
+    /** SonarCloud project key. Not a secret; the token is in $SONAR_TOKEN. */
+    public static final String SONAR_PROJECT_KEY = "IlieManoliUni_openjpa";
+
+    public static final String SONAR_API = "https://sonarcloud.io/api";
 }

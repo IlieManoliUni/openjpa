@@ -413,3 +413,73 @@ Other decisions recorded for Threats to validity:
 | Tickets with `FV == OV` are excluded from P but still receive an IV | `FV - OV = 0` makes P undefined. The prediction degenerates to `IV = FV`, which is correct, so only the learning of P is affected. |
 | The prediction is clamped to `[1, OV]` | Rounding can place the estimate outside the valid range. Clamping enforces the same consistency rule used to filter the training pool. |
 | Tickets with no OV or no FV get no IV | 17 were reported before the first release, 5 resolved after the last. Fabricating a version for them would invent data. |
+
+---
+
+## NSmells: two tools, each for the job it suits
+
+The Milestone 1 workflow says *"Compute NSmells via SonarCloud **or PMD or similar**"*. Both
+are used here, for different milestones, because neither alone can answer both questions.
+
+| Use | Tool | Reason |
+|---|---|---|
+| M1 dataset (and therefore M3) | **PMD**, per release checkout | Only method that measures each class *as it was at that release* |
+| M4 class ranking + refactoring prompt | **SonarCloud**, last release | The M4 prompt template requires *"(report SonarCloud diagnostic)"*, and the last release is modern code that builds |
+
+### Why SonarCloud cannot produce the per-release column
+
+A SonarCloud analysis measures the code as it is now. Applying today's counts to releases
+from 2006-2010 records a class that became smelly in 2015 as smelly in 2007 - the feature
+would be measured *after* the bugginess it is meant to predict.
+
+Running SonarCloud on each release checkout is not possible: its Java analyser needs
+compiled classes, so each release would have to build. Release 1 (`0.9.0`) is from 2006;
+its POMs reference two-decade-old plugins and its source targets Java 1.4. It cannot be
+built with Maven 3.9 and JDK 21.
+
+**PMD analyses source directly and compiles nothing**, so it runs against any checkout
+regardless of whether its build still works. That property is what makes a per-release
+NSmells column achievable.
+
+### Feasibility spike (PMD 7.27.0 on release 1, `dc1f0bf204`, 2006-08-26)
+
+| Question | Result |
+|---|---|
+| Parse errors on 2006 Java? | **none** - `--use-version` not required |
+| Violations found | 14,333 across 744 files |
+| `.java` files in the checkout | 966 total; **932 under `src/main`** |
+| Runtime | under a minute |
+| Processing errors | 2 - rule `UseStandardCharsets` crashing on `TimeUnit.java` (divide-by-zero in PMD's constant folder). Other rules still ran on that file. |
+
+932 `src/main` files matches exactly the class count recorded for release 1 by a separate
+earlier implementation, confirming that `src/main` is the correct scope.
+
+Decisions:
+
+| Decision | Rationale |
+|---|---|
+| Rulesets `design`, `errorprone`, `bestpractices` | Closest analogue to SonarCloud's maintainability rules. Balanced in practice: 5,985 / 3,969 / 4,379 violations. |
+| `src/main` only | Test code is not in the dataset. Confirmed by the 932-file match. |
+| The `UseStandardCharsets` crash is tolerated, not excluded | Excluding the rule would change the smell count of every class to work around a bug affecting one file. Bounded, documented limitation. |
+| PMD CSV must be parsed quote-aware | 2,272 of 14,333 rows (16%) contain commas inside the quoted `Description` field and would be corrupted by a naive split. |
+
+### SonarCloud analysis, as run
+
+`mvn ... sonar:sonar` on the full reactor, with:
+
+- `SONAR_SCANNER_JAVA_OPTS=-Xmx4g` - the scanner engine has its own JVM; `MAVEN_OPTS` does
+  not reach it. A first attempt failed after 90 minutes with `OutOfMemoryError` inside the
+  taint-analysis engine (`com.sonar.security`) at 1.8 GB, i.e. on the default heap.
+- `sonar.scanner.skipJreProvisioning=true` - the scanner otherwise downloads its own JRE.
+- exclusions: `**/src/test/**`, `**/openjpa-examples/**`, `**/openjpa-integration/**`,
+  `**/openjpa-tools/**`, `**/openjpa-project/**`.
+
+The exclusions are methodological, not merely pragmatic: tests, sample applications,
+integration harnesses, build tooling and documentation are not product classes and do not
+belong in the dataset or in the M4 ranking.
+
+Result: **1,515 Java files, 10,664 code smells, 532 files with zero smells.**
+
+Cross-check against a separate earlier run: `ExpressionImpl` = 1 smell in both.
+`BrokerImpl` = 184 here against 152 previously, consistent with OpenJPA having moved from
+4.1.2-SNAPSHOT to 4.2.0-SNAPSHOT in the interim.
