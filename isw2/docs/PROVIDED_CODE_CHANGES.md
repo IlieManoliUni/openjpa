@@ -725,3 +725,54 @@ data rather than on a proxy.
 | NSmells last release | `SonarSmells` | `smells.csv` | 10,664 smells |
 | SZZ labelling | `Labeler` | `buggy.csv` | 2,994 matched pairs |
 | Join | `DatasetBuilder` | `dataset.csv`, `.arff` | 14,769 rows, 20.3% buggy |
+
+---
+
+## Feature set: what is included, and what is not
+
+The Milestone 1 slide asks for *"About 20 features + NSmells"* and then enumerates **16**
+class metrics. All 16 are implemented, under his exact column names, plus NSmells - **17
+features**. The gap between "about 20" and 17 is his phrasing, not an omission: every metric
+he names is present.
+
+### The Kamei commit metrics are deliberately not included
+
+The slide also lists an optional commit-metric set - `NS, ND, NF, Entropy, LA, LD, LT, FIX,
+NDEV, AGE, NUC, EXP, REXP, SEXP` - with the instruction *"Include only what you use; justify."*
+They are not included, for three reasons:
+
+1. **Wrong unit of analysis.** They describe a *change*, not a *(class, release)* snapshot.
+   The dataset's row is a class at a release; a commit metric would have to be aggregated over
+   every revision of that class, at which point it duplicates metrics already present
+   (`NF` becomes `ChgSetSize`, `LA`/`LD` become `LOC_added` and the deleted half of
+   `LOC_touched`, `NDEV` becomes `NAuth`, `AGE` becomes `Age`, `FIX` becomes `NFix`).
+2. **Redundancy inflates the feature space** without adding signal, which matters for
+   Milestone 2's feature selection: near-duplicate features distort a CFS subset evaluation.
+3. **The three that are genuinely new** - `Entropy`, `NUC` and the developer-experience trio
+   `EXP`/`REXP`/`SEXP` - would need a developer-history model the assignment does not ask for.
+
+The set actually used is the one his own example dataset uses, which contains exactly these
+16 columns and no commit metrics.
+
+## Milestone 1 completeness check
+
+| Requirement (slide) | Status |
+|---|---|
+| Project via the last-name algorithm | OPENJPA |
+| Columns: project, class, release, features + NSmells, bugginess | all present |
+| The 16 named class metrics | 16/16, his column names |
+| Kamei commit metrics | omitted, justified above |
+| Releases and dates | 42 |
+| Ignore the last 66% | 14 kept (oldest third) |
+| Last commit of each release | 42/42 resolved |
+| Check out the code at that revision | JGit tree walk |
+| Per class: name, features, NSmells | 14,769 rows |
+| Assume all classes not buggy initially | default `no` |
+| Tickets: Bug and Closed/Resolved and Fixed | 1,133 |
+| Proportion (Total) with SZZ | P = 2.109 |
+| Reuse the provided Java code | both classes; deviations C1-C6 |
+| Results: classes per release, stability | 932 -> 1,290, monotonic |
+| Results: fraction buggy | 20.3% |
+
+ARFF validation: 18 attributes, 14,769 data rows, 0 malformed rows, 0 missing values, class
+attribute last and declared `{no,yes}`.
