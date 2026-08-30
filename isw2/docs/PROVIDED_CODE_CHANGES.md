@@ -776,3 +776,415 @@ The set actually used is the one his own example dataset uses, which contains ex
 
 ARFF validation: 18 attributes, 14,769 data rows, 0 malformed rows, 0 missing values, class
 attribute last and declared `{no,yes}`.
+
+---
+
+# Milestone 2 — classifier accuracy
+
+Slide 2 of `15_1_Milestone 2 Classifier.pdf`:
+
+> Compare l'accuratezza (Precision/Recall/AUC/Kappa/NPofB20), di tre classificatori
+> (RandomForest / NaiveBayes / Ibk), sul progetto selezionato precedentemente,
+> utilizzando la tecnica di validazione 10 times 10-folds. Utilizzare filtra come feature
+> selection e balancing.
+
+Milestone 2 provides no Java program to adapt. What it provides is three short worked
+examples on Weka's `breast-cancer` sample data, plus one expected output format.
+
+| Provided file | What it shows | How it is used here |
+|---|---|---|
+| `15_3_TestWekaEasy.txt` | load ARFF, set class index, build, evaluate, read `areaUnderROC(1)` and `kappa()` | the evaluation idiom, including `setClassIndex(numAttributes() - 1)` and the positive-class index `1` |
+| `13_3_TestWekaSampling.java` | `SpreadSubsample` / `Resample` / `SMOTE` inside a `FilteredClassifier` | the balancing wiring, adopted as-is |
+| `14_3_TestWekaFeatureSelection.java` | `CfsSubsetEval` + `GreedyStepwise(backwards)` via the `AttributeSelection` filter | the feature-selection wiring, with the change in M2-C2 |
+| `15_2_ExampleOfOutputD2M2.csv` | the required column set and row order | reproduced exactly; its numbers are placeholders (e.g. AUC 0.73 with Kappa 0.72) and are not targets |
+
+Same rule as Milestone 1: **change only what is provably necessary, and record it here.**
+
+---
+
+## Changes made
+
+### M2-C1 - `Resample -Z` and `SMOTE -P`: the formula on the balancing slide sits under the wrong bullet
+
+| | |
+|---|---|
+| Source | `13_1_Balancing.pdf`, slide 9 |
+| Printed | "**Oversampling** - noReplacement=false, biasToUniformClass=1.0, and sampleSizePercent=Y, `Y = 100 * (majority - minority)/minority`. Example for the diabetes data: `Resample -B 1.0 -Z 130.3`" |
+| Problem | For Weka's `diabetes.arff` (768 rows: 500 negative, 268 positive) the printed formula gives `100*(500-268)/268 = 86.6`, not the 130.3 of the slide's own example. The two disagree. |
+| Resolution | The example is correct for `Resample`; the formula is correct for `SMOTE`. It has been typed one bullet too high. |
+
+`Resample -Z` is *sample size as a percentage of the input*. To end up with `majority` rows
+of each of the `k` classes, the output must hold `k * majority` rows:
+
+```
+Z = 100 * k * majority / total
+diabetes: 100 * 2 * 500 / 768 = 130.2      matches the slide's 130.3
+OPENJPA : 100 * 2 * 11775 / 14769 = 159.46
+```
+
+`SMOTE -P` is *how many new minority rows to synthesise, as a percentage of the minority
+class*. To close the gap exactly:
+
+```
+P = 100 * (majority - minority) / minority
+diabetes: 100 * (500-268)/268 = 86.6   ->  268 + 232 = 500 = majority, exactly balanced
+OPENJPA : 100 * 8781 / 2994 = 293.29   -> 2994 + 8781 = 11775 = majority
+```
+
+That is the printed formula, and it is exact. It belongs to the SMOTE bullet one line below.
+
+Why the example rather than the formula was followed: with `-B 1.0` **every** value of `-Z`
+produces a balanced result, because `-Z` only sets the total size. The discriminator is the
+slide's own heading. On diabetes, `-Z 130.2` keeps all 500 majority rows (pure
+oversampling); `-Z 86.6` produces 665 rows, 332 per class, silently discarding 168 majority
+rows - a hybrid over/under sample, which is the *other* bullet's job. On OPENJPA the
+printed reading would have discarded 5,380 real non-buggy classes while the report called
+it oversampling.
+
+Both constants are recomputed per training fold in `Balancing.filterFor(Instances)` rather
+than hard-coded, and the run prints the before/after class counts on the first fold:
+
+```
+fold 1 training set: 13292 rows (10597 no / 2695 yes, 20.3% buggy)
+  after Oversampling: 21194 rows (10597 no / 10597 yes, 50.0% buggy)
+```
+
+`10597` unchanged on both lines is the evidence that this is oversampling and not the
+hybrid. Reverting to the printed reading is one line in `Balancing.oversamplingPercent`.
+
+### M2-C2 - feature selection is fitted inside `FilteredClassifier`, not on the dataset
+
+| | |
+|---|---|
+| File | `14_3_TestWekaFeatureSelection.java` |
+| Original | `filter.setInputFormat(noFilterTraining); Instances filteredTraining = Filter.useFilter(noFilterTraining, filter); ... Instances testingFiltered = Filter.useFilter(testingNoFilter, filter);` |
+| Changed to | `FilteredClassifier` wrapping the `AttributeSelection` filter, rebuilt per fold |
+| Necessary because | The provided code is a **holdout** example, and as written for a holdout it is correct - the subset is learned from `noFilterTraining` and merely applied to the test set. Its lab slide, however, instructs "Perform 10-fold cross validation". Carrying the code over unchanged means fitting the subset once on all 14,769 rows and then cross-validating, so the 1,477 rows being predicted in each fold helped choose the attributes they are scored on. That is selection leakage. |
+
+`FilteredClassifier` fits its filter on exactly the data passed to `buildClassifier` - the
+training fold - and at prediction time applies the attribute filter to the incoming
+instance while letting supervised *instance* filters pass it through untouched. One wrapper
+therefore makes both preprocessing steps fold-local.
+
+The balancing example, `13_3_TestWekaSampling.java`, already uses `FilteredClassifier` and
+needed no change. Only the feature-selection example did.
+
+Nesting order used, outermost first:
+
+```
+FilteredClassifier(CfsSubsetEval + GreedyStepwise backwards)
+  -> FilteredClassifier(Resample)
+       -> base classifier
+```
+
+Feature selection sees the fold's real 20.3/79.7 distribution, and balancing sees the
+reduced attribute set. CFS scores an attribute by its correlation with the class net of its
+correlation with the other attributes; measuring those correlations on rows that are
+duplicates of each other, against a class prior that was invented, would not be measuring
+relevance. Relevance is a property of the real data; class exposure is a property of the
+learner.
+
+### M2-C3 - a fresh `Evaluation` per configuration
+
+| | |
+|---|---|
+| File | `14_3_TestWekaFeatureSelection.java` |
+| Original | one `Evaluation evalClass` is created, used for the unfiltered model, then reused for the filtered model without being reset |
+| Changed to | a new `Evaluation` per repetition (cross validation) and per step (walk-forward) |
+| Necessary because | `Evaluation.evaluateModel` **accumulates**. In the provided example the line printed as "AUC filtered" is computed over both models' predictions pooled together, not over the filtered model alone. Any comparison drawn from those two printouts is between a model and a mixture containing itself. |
+
+---
+
+## Weka API traps encountered
+
+### `evaluateModelOnceAndRecordPrediction` returns a label, not a distribution
+
+`Evaluation` carries two overloads whose names are identical:
+
+```java
+double evaluateModelOnceAndRecordPrediction(Classifier c, Instance i)   // returns Utils.maxIndex(dist)
+void   evaluateModelOnceAndRecordPrediction(double[] dist, Instance i)  // takes a distribution
+```
+
+The first returns the **predicted class index**, not `P(buggy)`. NPofB20 needs the
+probability, so the first overload cannot supply it. The compiler catches the type
+mismatch; the obvious way to silence it - wrapping the returned `double` in a one-element
+array - compiles and then either throws `ArrayIndexOutOfBoundsException` on index 1 or,
+worse, silently fills every `Npofb.Entry` with a hard 0.0/1.0. Every prediction would tie,
+and NPofB20 would become an artefact of the tie-break rule with no error anywhere.
+
+Resolution: call `distributionForInstance` directly and hand the result to the array
+overload. One prediction serves both the `Evaluation` and NPofB20, which matters because
+for IBk that prediction is the expensive part.
+
+The class value is blanked on a copy of the instance first, mirroring Weka's own
+implementation. No classifier reads the label it is predicting, but a `FilteredClassifier`
+runs supervised filters over the instance on the way in, and those can touch the class
+attribute. Masking makes leakage impossible by construction rather than by trust.
+
+## Written by us, not provided
+
+| Class | Why it exists |
+|---|---|
+| `Npofb` | Weka has no effort-aware measure. `Evaluation` provides precision, recall, AUC and kappa; PofB20 and NPofB20 had to be implemented from the definitions in `12_Npofb20.pdf`. |
+| `CrossValidator` | Weka's `Evaluation.crossValidateModel` does a single 10-fold pass and exposes no per-instance probabilities, so it can neither do "10 times" nor feed NPofB20. |
+| `WalkForward` | Not required by the milestone; added as a second table, see M2-T1. |
+| `Balancing`, `ClassifierKind` | The filter and classifier configurations named on the slides, in one place each. |
+| `ClassifierEvaluator`, `WalkForwardEvaluator` | Drive the experiment matrix and write the CSVs. |
+
+### NPofB20 as implemented
+
+Rank the cross-validated predictions by `P(buggy) / LOC` descending, walk down accumulating
+LOC until 20% of the total is consumed, and report `bugs found / bugs present`. PofB20 is
+the same walk ranked by `P(buggy)` alone. Decisions taken where the slide is silent:
+
+| Decision | Rationale |
+|---|---|
+| The class that crosses the budget is counted as inspected | A developer who opens a file reads it. The alternative - skip anything that would overshoot - lets one large class block every smaller class behind it. |
+| Size is charged a minimum of 1 LOC | A zero-size class would have infinite density, rank first, and cost nothing. |
+| Ties broken by smaller size first | Among equally promising candidates the cheaper one is the rational choice, and it makes the result reproducible instead of dependent on fold order. |
+| Predictions pooled across the 10 folds of a repetition, computed per step in walk-forward | 20% of one fold is not a codebase. In walk-forward each test set *is* one complete release, so the budget is 20% of a real codebase at a real point in time. |
+| `LOC` read from the unfiltered instance | Feature selection removes `LOC` in 79 folds out of 100. The effort proxy must survive that, so it is read outside the `FilteredClassifier`. |
+
+## Noticed and deliberately NOT changed
+
+| Observation | Left alone because |
+|---|---|
+| No classifier is tuned; all three use Weka defaults | The milestone asks which classifier is most accurate. Tuning one by hand would measure how much attention each received. Proper tuning needs an inner validation loop, which is a different experiment. |
+| `IBk` runs with k=1, its default | The slides name "Ibk" with no parameters. Consequences are recorded in M2-T3 rather than engineered away. |
+| 10 times 10-fold cross validation, though it ignores release order | It is what the milestone specifies. Its consequence is measured and reported in M2-T1, and walk-forward is added beside it rather than in place of it. |
+| `GreedyStepwise` searches backwards | `search.setSearchBackwards(true)` is what the provided example sets. |
+| Balancing "Yes" is one technique, not three | The expected output has a single Yes/No column. The three-way comparison is a separate table. |
+| The netlib/ARPACK warning at startup | `weka-stable` looks for a native BLAS, does not find one, and loads its bundled reference implementation. Nothing used here touches ARPACK. |
+
+---
+
+# Milestone 2 — results
+
+Dataset: the Milestone 1 output, 14,769 rows, 17 features, 20.3% buggy.
+Validation: 10 times 10-fold, seeds 1..10.
+
+## The required table
+
+`results/m2_results.csv`, columns and row order as in `15_2_ExampleOfOutputD2M2.csv`.
+
+| Balancing | FS | Classifier | Precision | Recall | AUC | Kappa | NPofB20 |
+|---|---|---|---|---|---|---|---|
+| No | No | RandomForest | 0.867 | 0.731 | 0.960 | 0.746 | 0.667 |
+| No | No | NaiveBayes | 0.603 | 0.367 | 0.798 | 0.358 | 0.196 |
+| No | No | Ibk | 0.605 | 0.581 | 0.760 | 0.492 | 0.430 |
+| No | Yes | RandomForest | 0.817 | 0.720 | 0.952 | 0.710 | 0.656 |
+| No | Yes | NaiveBayes | 0.602 | 0.370 | 0.787 | 0.359 | 0.207 |
+| No | Yes | Ibk | 0.701 | 0.645 | 0.861 | 0.593 | 0.538 |
+| Yes | No | RandomForest | 0.766 | 0.813 | 0.954 | 0.733 | 0.646 |
+| Yes | No | NaiveBayes | 0.585 | 0.378 | 0.796 | 0.357 | 0.195 |
+| Yes | No | Ibk | 0.540 | 0.635 | 0.761 | 0.467 | 0.436 |
+| Yes | Yes | RandomForest | 0.717 | 0.814 | 0.943 | 0.697 | 0.637 |
+| Yes | Yes | NaiveBayes | 0.579 | 0.393 | 0.786 | 0.364 | 0.215 |
+| Yes | Yes | Ibk | 0.619 | 0.731 | 0.855 | 0.577 | 0.537 |
+
+**Which classifier is most accurate?** RandomForest, on every metric in every one of the
+four settings. The ordering is `RandomForest > NaiveBayes > Ibk` without feature selection
+and `RandomForest > Ibk > NaiveBayes` with it, and it is identical under walk-forward.
+
+**Does feature selection help? It depends entirely on the classifier.** AUC, no balancing:
+
+```
+RandomForest  0.960 -> 0.952   -0.008   already selects features at every split
+NaiveBayes    0.798 -> 0.787   -0.011   a near-uniform likelihood multiplies through as ~1
+Ibk           0.760 -> 0.861   +0.101   Euclidean distance is polluted by every junk axis
+```
+
+IBk improves on all five metrics under both balancing settings. Every irrelevant attribute
+contributes to the distance in the same units as a useful one, so deleting the seven CFS
+rejects makes "who is my nearest neighbour" mean something.
+
+**NaiveBayes is insensitive to balancing** - recall moves 0.367 to 0.378 under
+oversampling, and no more under any other technique. It multiplies 17 Gaussian densities,
+so the likelihood ratio is astronomically far from 1 and the class prior is a rounding
+error against it. Moving the prior from 0.20/0.80 to 0.50/0.50 shifts a decision that was
+never close.
+
+**NPofB20 replicates RQ2 of `12_Npofb20.pdf`.** For RandomForest, NPofB20 0.667 against
+PofB20 0.234 - **2.85x** the bugs found for the same reading effort, by ranking on
+`P/LOC` instead of `P`.
+
+## Balancing comparison
+
+`results/m2_balancing.csv`, feature selection off, all four settings.
+
+| Classifier | Balancing | Precision | Recall | AUC | Kappa | NPofB20 |
+|---|---|---|---|---|---|---|
+| RandomForest | None | 0.867 | 0.731 | 0.960 | 0.746 | 0.667 |
+| RandomForest | Undersampling | 0.601 | 0.876 | 0.939 | 0.622 | 0.585 |
+| RandomForest | Oversampling | 0.766 | 0.813 | 0.954 | 0.733 | 0.646 |
+| RandomForest | SMOTE | 0.819 | 0.801 | 0.962 | **0.762** | 0.661 |
+| NaiveBayes | None | 0.603 | 0.367 | 0.798 | 0.358 | 0.196 |
+| NaiveBayes | Undersampling | 0.580 | 0.381 | 0.794 | 0.356 | 0.196 |
+| NaiveBayes | Oversampling | 0.585 | 0.378 | 0.796 | 0.357 | 0.195 |
+| NaiveBayes | SMOTE | 0.581 | 0.382 | 0.800 | 0.358 | 0.199 |
+| Ibk | None | 0.605 | 0.581 | 0.760 | 0.492 | 0.430 |
+| Ibk | Undersampling | 0.435 | 0.751 | 0.758 | 0.396 | 0.444 |
+| Ibk | Oversampling | 0.540 | 0.635 | 0.761 | 0.467 | 0.436 |
+| Ibk | SMOTE | 0.559 | 0.659 | 0.778 | **0.494** | 0.449 |
+
+Balancing behaves as the theory predicts: recall bought with precision. RandomForest gains
+8 points of recall for 10 of precision under oversampling. Undersampling pushes recall to
+0.876 but precision collapses to 0.601 and kappa to 0.622 - the cost of discarding 8,781
+real non-buggy classes.
+
+**SMOTE is the best of the three on kappa for two of the three classifiers**, and the only
+technique that raises kappa above the unbalanced baseline for RandomForest (0.762 vs
+0.746). It synthesises minority rows instead of duplicating them (Resample) or deleting
+majority rows (SpreadSubsample). It is also by far the slowest: 2,868 s against 1,205 s for
+Resample on the same configuration, because it runs a kNN search among the minority class
+for each of the 8,781 rows it creates.
+
+## Attribute selection stability
+
+`results/m2_features.csv`, over all 100 training folds. CFS is a filter method - it never
+consults the classifier, and balancing is applied after it - so the subset chosen for a
+given fold is the same for all three classifiers and both balancing settings. Two
+independent runs produced byte-identical tables, which confirms it empirically.
+
+| Selected in every fold | Almost always | Unstable | Never |
+|---|---|---|---|
+| `NR` 100, `NFix` 100, `NAuth` 100, `AVG_Churn` 100, `AVG_ChgSet` 100, `NSmells` 100 | `LOC_added` 99, `MAX_ChgSet` 98, `MAX_Churn` 81 | `AVG_LOC_added` 44, `Age` 39, `LOC` 21, `Churn` 10, `LOC_touched` 7, `MAX_LOC_added` 6 | `ChgSetSize` 0, `WeightedAge` 0 |
+
+Typical subset: 10 of 17 attributes.
+
+Three observations for the report. **`NSmells` is selected in 100/100 folds** - the PMD
+per-release smell count from Milestone 1 is a permanent member of the subset, which
+justifies the effort that stage cost. **`LOC` survives only 21/100** - raw size is not the
+signal; the process and change metrics are. **CFS's redundancy penalty is visible**: it
+keeps `AVG_Churn` (100) and `MAX_Churn` (81) while dropping raw `Churn` (10), and keeps
+`LOC_added` (99) while dropping the near-collinear `LOC_touched` (7).
+
+## Walk-forward (not required by the milestone)
+
+`results/m2_walkforward.csv`. Train on releases 1..k, test on release k+1, k = 1..13. The
+technique used in the RQ2 methodology of `12_Npofb20.pdf`; see M2-T1 for why it was added.
+
+AUC, no feature selection, no balancing:
+
+| Classifier | 10x10 CV | walk-forward | change |
+|---|---|---|---|
+| RandomForest | 0.960 | 0.883 | -0.077 |
+| NaiveBayes | 0.798 | 0.788 | -0.010 |
+| Ibk | 0.760 | 0.668 | -0.092 |
+
+The ranking of classifiers is unchanged under both protocols, with and without feature
+selection. NPofB20 against PofB20 for RandomForest is 0.529 vs 0.168 - **3.15x**, a
+stronger replication of RQ2 than under cross validation.
+
+---
+
+# Milestone 2 — threats to validity
+
+## M2-T1 The cross-validation figures are inflated by file identity
+
+An AUC of 0.960 is far outside the 0.70-0.80 range reported in the defect-prediction
+literature, including in Falessi's own papers. The cause was measured rather than assumed.
+
+**Not label leakage.** If a metric encoded the label, that metric alone would predict it.
+Single-feature AUC over all 14,769 rows tops out at `Churn` 0.746 and `LOC` 0.746;
+`NFix` - the metric most likely to be contaminated, since it and `Buggy` both derive from
+bug-fix commits - reaches only 0.665. The Milestone 1 dataset is clean.
+
+**The cause is that a file recurs across the split.** The dataset has one row per (class,
+release); 1,348 distinct files produce 14,769 rows, about 11 per file. Bugginess is
+overwhelmingly a property of the file:
+
+```
+consecutive-release pairs of the same file with the SAME label:  12,538 / 13,421  (93.4%)
+files never buggy in any release:  760 / 1,348
+files buggy in every release:       69 / 1,348
+```
+
+A deliberately cheating predictor - for each row, ignore all 17 metrics and predict that
+file's buggy rate computed from its **other** rows - scores **AUC 0.913**. Random 10-fold
+folds place roughly ten of a file's eleven rows in the training set while the eleventh is
+predicted, and since the metrics are cumulative and change slowly (13,761 distinct feature
+vectors for 14,769 rows), a file's metric vector is effectively a fingerprint. A model able
+to partition the space finely enough performs a lookup rather than a prediction.
+
+**The evidence that this is what happens** is the behaviour of NaiveBayes. As a product of
+17 independent marginal Gaussians it cannot represent "this combination of values is file
+X", so it is structurally incapable of the lookup - and it is the one classifier that loses
+nothing when the opportunity is removed (-0.010). RandomForest and IBk, both able to
+memorise, lose 0.077 and 0.092. NaiveBayes acts as a control group.
+
+**Consequence for the milestone's own question.** Under random folds, part of what
+distinguishes the classifiers is memorisation capacity rather than defect-prediction skill.
+The *ranking*, however, is identical under both protocols, so the answer "RandomForest is
+the most accurate" is robust; the magnitudes are not.
+
+## M2-T2 Walk-forward does not remove file recurrence
+
+Between 95% and 99.9% of the files in release k+1 already exist in release k, so a file
+still spans the split under walk-forward. What walk-forward removes is training on the
+future: no model is built from data that did not exist when its prediction would have been
+made, and no test release votes on the feature selection or balancing applied to the
+releases before it. Removing time travel recovers roughly half the inflation
+(0.960 -> 0.883), not all of it. Eliminating recurrence entirely would require grouping
+folds by file, which is a third protocol and was not run.
+
+## M2-T3 IBk's AUC is structurally different from the others
+
+With k=1 the predicted probability is essentially 0 or 1, so the ROC curve has a single
+interior point and AUC collapses to `(sensitivity + specificity)/2` - approximately 0.74
+for the first row against the 0.760 measured. The excess comes from tied nearest
+neighbours: Weka returns every instance tied at the boundary distance, and with 10.8% of
+rows being exact duplicate feature vectors, ties at distance zero are common.
+
+For the same reason IBk's PofB20 (0.419) sits close to its NPofB20 (0.430) while
+RandomForest shows 0.234 against 0.667. Normalisation can only reorder what differs, and a
+mostly-tied ranking leaves little to reorder. IBk's PofB20 is also unusually high in
+absolute terms, because within a large tie block the tie-break rule (smaller first) makes
+it an effort-aware ranking by accident. Any PofB comparison involving a classifier with
+near-binary output is sensitive to the tie-break convention.
+
+## M2-T4 Walk-forward step 10 crosses a branch boundary
+
+Training on releases 1..10 and testing on release 11 fails for all three classifiers at
+once - RandomForest AUC 0.64, NaiveBayes 0.62, IBk 0.36 with kappa -0.17, worse than
+random. This is structural, not noise, and Milestone 1 explains it: the ancestry matrix
+showed the releases are not a chain, and the only real lineages are `1 -> all`,
+`10 -> 12 -> 13` and `11 -> 14`. Releases 11 and 14 sit on a parallel maintenance branch,
+so step 10 predicts a maintenance line from mainline history, and step 13 (test release 14,
+same branch) is IBk's second-worst at 0.55. Release order is by date, which is correct for
+a temporal protocol, but date order and lineage diverge in this project.
+
+## M2-T5 Other limitations
+
+| Threat | Effect |
+|---|---|
+| No hyper-parameter tuning | The comparison is between the three algorithms at their defaults, not at their best. |
+| One project | Every result is OPENJPA-specific; his exam question about the best classifier varying by dataset cannot be answered from one. |
+| Snoring, inherited from M1 | Only the oldest 14 of 42 releases are used, so the labels themselves are the ones the 66% rule leaves. |
+| NPofB20 uses `LOC` as the effort proxy | Lines are a proxy for inspection effort, not effort itself. |
+| Precision/recall use Weka's 0.5 threshold | The threshold is not tuned; AUC and NPofB20 are threshold-free and are the more robust comparisons. |
+
+---
+
+# Milestone 2 completeness check
+
+| Requirement (slide 2) | Status |
+|---|---|
+| Precision | 12/12 rows |
+| Recall | 12/12 rows |
+| AUC | 12/12 rows |
+| Kappa | 12/12 rows |
+| NPofB20 | 12/12 rows, implemented from `12_Npofb20.pdf` |
+| RandomForest | Weka defaults |
+| NaiveBayes | Weka defaults |
+| Ibk | Weka defaults, k=1 |
+| On the previously selected project | OPENJPA, the Milestone 1 dataset |
+| 10 times 10-fold validation | seeds 1..10, stratified, pooled per repetition |
+| Filter as feature selection | `CfsSubsetEval` + `GreedyStepwise(backwards)`, fold-local |
+| Filter as balancing | `Resample -B 1.0 -Z 159.46`, fold-local |
+| Output format | columns and row order of `15_2_ExampleOfOutputD2M2.csv` |
+
+Beyond the requirement: the three-way balancing comparison, attribute-selection stability
+over the 100 folds, PofB20 alongside NPofB20, per-repetition standard deviations, and the
+walk-forward table.
