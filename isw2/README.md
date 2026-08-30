@@ -40,6 +40,9 @@ deliverable and the data is reproducible by running it.
 | Proportion (Total): OV, FV, IV per ticket | `isw2.openjpa.Proportion` | `data/proportion.csv` |
 | NSmells for the last release (SonarCloud API) | `isw2.openjpa.SonarSmells` | `data/smells.csv` |
 | 16 git-history metrics per (class, release) | `isw2.openjpa.MetricsComputer` | `data/metrics.csv` |
+| NSmells per release (PMD over each checkout) | `isw2.openjpa.PmdSmells` | `data/pmd_smells.csv` |
+| SZZ labelling: buggy (class, release) pairs | `isw2.openjpa.Labeler` | `data/buggy.csv` |
+| **Join: the Milestone 1 dataset** | `isw2.openjpa.DatasetBuilder` | `data/dataset.csv`, `data/dataset.arff` |
 
 *(further stages are added as the project progresses)*
 

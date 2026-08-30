@@ -34,6 +34,14 @@
             <version>7.2.1.202505142326-r</version>
         </dependency>
 
+        <!-- Silences JGit's "Failed to load class StaticLoggerBinder" warning.
+     SLF4J is a logging facade; without a binding it prints this once and
+     discards all log output. slf4j-nop makes that discarding explicit. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
+            <version>1.7.36</version>
+        </dependency>
     </dependencies>
 
 </project>

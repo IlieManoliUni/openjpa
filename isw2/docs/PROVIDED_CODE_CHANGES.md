@@ -607,3 +607,121 @@ numbers:
    early releases, where the `openjpa-*-5` Java-5 modules were later folded into the main
    modules. Renames are now filtered to the release's ancestry and applied in commit-time
    order, the latter so the result does not depend on hash iteration order.
+
+---
+
+## SZZ labelling
+
+A commit fixes ticket K when its message references K *and* K is one of the 1,133 confirmed
+`type=Bug, resolution=Fixed` tickets. The `src/main` `.java` files that commit changes are
+the buggy classes, labelled buggy for every release in `[IV, FV)` - half-open, because FV is
+the release that contains the fix.
+
+All refs are walked, not just `master`: the ancestry matrix shows releases scattered across
+maintenance branches, so a fix landing on `1.2.x` is invisible from trunk.
+
+```
+commits scanned                7,951
+fixing commits                 2,712
+tickets matched                  888   (unmatched 222)
+tickets contributing labels      511   (the rest have [IV,FV) outside releases 1-14)
+buggy (class, release) pairs   3,851
+  ... matching a metrics row   2,994
+  ... with no metrics row        857
+buggy rate                     20.3%
+```
+
+### The 857 unmatched pairs are an SZZ property, not a defect
+
+Proportion can place IV earlier than the class's own creation. Example: `DBIdentifier.java`
+is labelled buggy at release 7, but that class was introduced in OpenJPA 2.x and does not
+exist in 1.1.0. The join discards such pairs because no `(class, release)` row exists for
+them. Recorded as a threat: the estimated injection version is not constrained by the class's
+lifetime.
+
+### Buggy rate per release
+
+```
+v 1 11.7%   v 2 21.8%   v 3 21.0%   v 4 14.5%   v 5 13.8%
+v 6 16.0%   v 7 26.3%   v 8 20.9%   v 9 26.0%   v10 32.3%
+v11 28.4%   v12 17.6%   v13 15.7%   v14 16.6%
+```
+
+The fall at releases 12 and 13 - the newest kept - is **snoring** visible in this project's
+own data: defects in recent releases have not yet been discovered and fixed, so SZZ cannot
+label them and those releases appear cleaner than they are. This is the effect the 66% rule
+exists to limit, and it argues that the rule could be applied more aggressively still.
+
+Comparison with a separate earlier implementation: 6,006 pairs and 17.3% buggy, against 3,851
+and 20.3% here. The difference follows from the corrected `OV` definition, which changed every
+`IV` and therefore the length of every `[IV, FV)` interval.
+
+---
+
+# Milestone 1 — results
+
+`dataset.csv`: one row per (class, release), 14 releases, **14,769 rows**.
+
+```
+Project,Version,FileName,LOC,LOC_touched,NR,NFix,NAuth,LOC_added,MAX_LOC_added,
+AVG_LOC_added,Churn,MAX_Churn,AVG_Churn,ChgSetSize,MAX_ChgSet,AVG_ChgSet,Age,
+WeightedAge,NSmells,Buggy
+```
+
+`dataset.arff` carries the 17 features and the label only. `Project`, `Version` and
+`FileName` are deliberately excluded from the ARFF: a path would be memorised as a nominal
+attribute with 14,769 values, and `Version` would let a classifier learn "later release =
+buggier", which is an artefact of snoring rather than a property of the code. `Buggy` is
+declared `{no,yes}` so that `yes` is the positive class for Weka's `areaUnderROC(1)`, the
+call used in the provided `TestWekaEasy` example.
+
+### How many classes per release, and are they stable?
+
+```
+v 1   932    v 2   951    v 3   952    v 4  1002    v 5  1003
+v 6  1008    v 7  1049    v 8  1008    v 9  1055    v10  1166
+v11  1055    v12  1243    v13  1290    v14  1055
+```
+
+Monotonic growth along each branch, 932 to 1,290, with no discontinuities. Releases 8, 11
+and 14 are smaller than their date-neighbours because they sit on the 1.0.x and 1.2.x
+maintenance branches rather than trunk.
+
+### What fraction are buggy?
+
+**2,994 of 14,769 = 20.3%** - a realistic, imbalanced defect distribution.
+
+Per release the rate rises through the middle of the window and falls at releases 12 and 13,
+the newest kept. That fall is snoring in this project's own data.
+
+### Do smells relate to bugs?
+
+| | classes | buggy | rate |
+|---|---|---|---|
+| NSmells > 0 | 10,990 | 2,580 | **23.5%** |
+| NSmells = 0 | 3,779 | 414 | **11.0%** |
+| | | | **2.14x** |
+
+NSmells ranges 0 to 430, median 3, with 3,779 classes (25.6%) carrying none. That clean
+quarter is what makes Milestone 3's "what if zero smells" a real counterfactual rather than a
+vacuous one.
+
+A separate earlier implementation reported 22.2% versus 8.2% (2.7x) using SonarCloud counts
+from current code projected onto old releases. The figures here are measured per release by
+PMD on each release's own source, so the association is established on temporally correct
+data rather than on a proxy.
+
+### Pipeline summary
+
+| Stage | Class | Output | Key figure |
+|---|---|---|---|
+| Releases from JIRA | `ReleaseExtractor` | `OPENJPAVersionInfo.csv` | 42 releases |
+| 66% cut + commit mapping | `ReleaseResolver` | `releases.csv` | 14 kept, 0 unresolved |
+| Fixed bug tickets | `TicketExtractor` | `tickets.csv` | 1,133 |
+| AV diagnostics | `TicketStats` | `ticket_stats.csv` | 932 usable IV |
+| Proportion (Total) | `Proportion` | `proportion.csv` | P = 2.109 |
+| 16 git metrics | `MetricsComputer` | `metrics.csv` | 14,769 rows |
+| NSmells per release | `PmdSmells` | `pmd_smells.csv` | PMD, 14 checkouts |
+| NSmells last release | `SonarSmells` | `smells.csv` | 10,664 smells |
+| SZZ labelling | `Labeler` | `buggy.csv` | 2,994 matched pairs |
+| Join | `DatasetBuilder` | `dataset.csv`, `.arff` | 14,769 rows, 20.3% buggy |
