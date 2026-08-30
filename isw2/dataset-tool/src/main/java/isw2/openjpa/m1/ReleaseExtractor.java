@@ -1,5 +1,7 @@
-package isw2.openjpa;
+package isw2.openjpa.m1;
 
+import isw2.openjpa.Config;
+import isw2.openjpa.util.JiraClient;
 import org.json.JSONArray;
 import org.json.JSONObject;
 

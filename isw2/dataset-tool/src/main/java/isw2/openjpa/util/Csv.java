@@ -1,4 +1,4 @@
-package isw2.openjpa;
+package isw2.openjpa.util;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

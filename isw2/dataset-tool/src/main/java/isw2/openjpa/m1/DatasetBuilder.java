@@ -1,4 +1,6 @@
-package isw2.openjpa;
+package isw2.openjpa.m1;
+
+import isw2.openjpa.Config;
 
 import java.io.IOException;
 import java.io.Writer;

@@ -1,4 +1,4 @@
-package isw2.openjpa;
+package isw2.openjpa.util;
 
 import org.json.JSONObject;
 

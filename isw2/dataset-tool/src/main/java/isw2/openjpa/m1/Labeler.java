@@ -1,5 +1,6 @@
-package isw2.openjpa;
+package isw2.openjpa.m1;
 
+import isw2.openjpa.Config;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
