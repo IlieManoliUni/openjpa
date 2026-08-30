@@ -483,3 +483,127 @@ Result: **1,515 Java files, 10,664 code smells, 532 files with zero smells.**
 Cross-check against a separate earlier run: `ExpressionImpl` = 1 smell in both.
 `BrokerImpl` = 184 here against 152 previously, consistent with OpenJPA having moved from
 4.1.2-SNAPSHOT to 4.2.0-SNAPSHOT in the interim.
+
+---
+
+## Metric definitions resolved from the provided example dataset
+
+The Milestone 1 metric list defines two metrics with identical wording:
+
+> **LOC Touched***: sum over revisions of LOC added and deleted.
+> **Churn***: sum over revisions of added and deleted LOC.
+
+Read literally these are the same quantity. The provided example dataset
+(`11_Milestone 1 - Dataset creation.csv`) shows they are not:
+
+```
+Churn == 2*LOC_added - LOC_touched    holds for 16,242 / 16,339 rows (99.4%)
+rows with negative Churn              567
+rows with Churn > LOC_touched         0
+```
+
+Rearranging `Churn = 2·added − touched` gives `touched = added + deleted` and
+`Churn = added − deleted`. The 567 negative values confirm it: a sum of two
+non-negative quantities cannot be negative. The 97 rows that miss are large values
+where his rounding to three significant figures exceeds the tolerance.
+
+**Adopted:** `LOC_touched = Σ(added + deleted)`, `Churn = Σ(added − deleted)`.
+
+Two further ambiguities resolved from the same file:
+
+| Metric | Slide text | What the data shows | Adopted |
+|---|---|---|---|
+| `Age` | "age of release" | 328 distinct values among the 1,369 rows of version 1 | age of the **class** at the release, not of the release |
+| `WeightedAge` | "age of release weighted by LOC touched" | 731 distinct values in version 1, minimum 0 | `Σ(age_i · touched_i) / Σ(touched_i)` over revisions |
+
+### The 16 metrics as implemented
+
+| # | Column | Definition |
+|---|---|---|
+| 1 | `LOC` | lines in the file at the release commit |
+| 2 | `LOC_touched` | `Σ (added + deleted)` over revisions |
+| 3 | `NR` | number of revisions |
+| 4 | `NFix` | revisions that fix a defect |
+| 5 | `NAuth` | distinct authors |
+| 6 | `LOC_added` | `Σ added` |
+| 7 | `MAX_LOC_added` | `max added` over revisions |
+| 8 | `AVG_LOC_added` | `LOC_added / NR` |
+| 9 | `Churn` | `Σ (added − deleted)` |
+| 10 | `MAX_Churn` | `max (added − deleted)` |
+| 11 | `AVG_Churn` | `Churn / NR` |
+| 12 | `ChgSetSize` | `Σ` files committed alongside, over revisions |
+| 13 | `MAX_ChgSet` | max files in one commit |
+| 14 | `AVG_ChgSet` | `ChgSetSize / NR` |
+| 15 | `Age` | release date − first commit touching the class |
+| 16 | `WeightedAge` | `Σ(age_i · touched_i) / Σ(touched_i)` |
+
+Scope decisions:
+
+| Decision | Rationale |
+|---|---|
+| Cumulative **from release 0**, not per-interval | The metric list marks these `* = within the release or from release 0`. Only this reading makes `Age` and `WeightedAge` meaningful. |
+| `NFix` from the **actual fixed-ticket set**, not a keyword heuristic | A revision counts as a fix when its message references a ticket key present in `tickets.csv`, i.e. an issue that is genuinely `type=Bug, resolution=Fixed`. A keyword search for "fix" would count refactorings and typo corrections. |
+| Rename detection **on** | A class moved between packages keeps its history. Truncating every class's history at a package reorganisation is the larger distortion. |
+| `src/main/**/*.java` only | Confirmed by the PMD spike: 932 such files at release 1, matching the class count from a separate implementation. |
+
+---
+
+## Release ancestry: releases are not a chain
+
+Measured with `git merge-base --is-ancestor` over the 14 kept release commits
+(row = ancestor, column = descendant):
+
+```
+      1  2  3  4  5  6  7  8  9 10 11 12 13 14
+ 1    .  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y
+ 2    -  .  -  -  -  -  -  -  -  -  -  -  -  -
+ 3    -  -  .  -  -  -  -  -  -  -  -  -  -  -
+ 4..9 -  -  -  .  -  -  -  -  -  -  -  -  -  -   (each an ancestor of nothing)
+10    -  -  -  -  -  -  -  -  -  .  -  Y  Y  -
+11    -  -  -  -  -  -  -  -  -  -  .  -  -  Y
+12    -  -  -  -  -  -  -  -  -  -  -  .  Y  -
+13    -  -  -  -  -  -  -  -  -  -  -  -  .  -
+```
+
+Release 1 is an ancestor of every other release. **Releases 2 through 9 are ancestors of
+nothing.** The only further chains are `10 -> 12 -> 13` (trunk, the 2.0.0 line) and
+`11 -> 14` (the 1.2.x maintenance line).
+
+Every release from 0.9.6 to 1.2.0 was cut on its own branch and never merged back into the
+line the next release came from. "Release 3 follows release 2" is therefore true by date and
+false by code lineage: they are siblings, not parent and child.
+
+Consequences, all of which are already visible in this project's results:
+
+| Consequence | Where it shows |
+|---|---|
+| A single history walk cannot compute metrics for all releases | `MetricsComputer` aggregates each release over its own ancestor set; a walk from the newest release would miss most of another release's history |
+| Renames must be applied per release | A rename performed on trunk must not be applied when aggregating a 1.2.x release. Applying them globally left 53 classes with `NR = 0` |
+| Metrics need not increase with release *index* | They increase only along true ancestor edges. Verified: over all 17 real ancestor pairs, zero classes show a decrease in `Age`, `NR` or `NFix` |
+| Ordering releases by date is an approximation | This is the mechanism behind the ~20% of tickets rejected as inconsistent by Proportion's validity filter: `OV` and `FV` are derived from a date-ordered release list that does not reflect lineage |
+
+### Validation of the metrics stage
+
+```
+rows written                     14,769   (14 releases)
+classes at release 1                932   (= the PMD spike's src/main count)
+classes at release 13             1,290
+NR == 0                               0
+Age < 0                               0
+NFix > NR                             0
+Churn > LOC_touched                   0
+Age/NR/NFix decreasing along
+  any real ancestor edge              0   (17 pairs checked)
+```
+
+Two defects found and fixed during development, both recorded here because each changed the
+numbers:
+
+1. **Age measured from JIRA's release date** rather than the release commit's timestamp gave
+   4 classes a negative age: JIRA's date is midnight UTC and the tagged commit can fall later
+   the same day. The age baseline is now the commit.
+2. **Renames applied globally** rather than per release attributed pre-rename changes to paths
+   that did not yet exist, leaving 53 classes with no history at all - concentrated in the
+   early releases, where the `openjpa-*-5` Java-5 modules were later folded into the main
+   modules. Renames are now filtered to the release's ancestry and applied in commit-time
+   order, the latter so the result does not depend on hash iteration order.

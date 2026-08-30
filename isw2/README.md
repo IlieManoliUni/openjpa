@@ -39,6 +39,7 @@ deliverable and the data is reproducible by running it.
 | Ticket / affected-version diagnostics | `isw2.openjpa.TicketStats` | `data/ticket_stats.csv` |
 | Proportion (Total): OV, FV, IV per ticket | `isw2.openjpa.Proportion` | `data/proportion.csv` |
 | NSmells for the last release (SonarCloud API) | `isw2.openjpa.SonarSmells` | `data/smells.csv` |
+| 16 git-history metrics per (class, release) | `isw2.openjpa.MetricsComputer` | `data/metrics.csv` |
 
 *(further stages are added as the project progresses)*
 
