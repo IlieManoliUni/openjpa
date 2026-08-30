@@ -35,12 +35,33 @@
         </dependency>
 
         <!-- Silences JGit's "Failed to load class StaticLoggerBinder" warning.
-     SLF4J is a logging facade; without a binding it prints this once and
-     discards all log output. slf4j-nop makes that discarding explicit. -->
+             SLF4J is a logging facade; without a binding it prints this once and
+             discards all log output. slf4j-nop makes that discarding explicit. -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-nop</artifactId>
             <version>1.7.36</version>
+        </dependency>
+
+        <!-- Milestone 2. weka-stable is the Maven Central artifact for the
+             Weka 3.8.x line, which is the same line as the Weka 3-8-6 GUI the
+             slides use ("C:/Program Files/Weka-3-8-6/..."). Matching the line
+             matters: 3.9.x changed some filter defaults, so a result produced
+             here would not reproduce in his GUI. -->
+        <dependency>
+            <groupId>nz.ac.waikato.cms.weka</groupId>
+            <artifactId>weka-stable</artifactId>
+            <version>3.8.6</version>
+        </dependency>
+
+        <!-- Milestone 2, supplementary comparison only. SMOTE is NOT part of
+             core Weka - the slide itself says "if needed, download it at
+             weka.sourceforge.io/packageMetaData/SMOTE". In the GUI that is the
+             Package Manager; in Maven it is this separate artifact. -->
+        <dependency>
+            <groupId>nz.ac.waikato.cms.weka</groupId>
+            <artifactId>SMOTE</artifactId>
+            <version>1.0.3</version>
         </dependency>
     </dependencies>
 
