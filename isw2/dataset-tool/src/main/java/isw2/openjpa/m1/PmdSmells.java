@@ -30,6 +30,13 @@ import java.util.TreeMap;
  *
  * For each kept release: export that release's src/main Java to a scratch folder,
  * run PMD over it, count violations per class, delete the scratch folder.
+ *
+ * The export, PMD and counting helpers below are public because Milestone 4
+ * reuses them to measure the last release of the project. Sharing the code path
+ * rather than copying it is what makes the two smell counts directly comparable
+ * instead of merely similar: same rulesets, same export filter, same counting.
+ * The per-release loop itself, and the release list it reads, stay private -
+ * they are this milestone's own logic, not part of the shared toolkit.
  */
 public class PmdSmells {
 
@@ -39,7 +46,7 @@ public class PmdSmells {
     private static final Path REPORT   = Path.of("data", "pmd-report.csv");
     private static final Path OUT      = Path.of("data", "pmd_smells.csv");
 
-    private static final String RULESETS =
+    public static final String RULESETS =
             "category/java/design.xml,"
                     + "category/java/errorprone.xml,"
                     + "category/java/bestpractices.xml";
@@ -104,7 +111,7 @@ public class PmdSmells {
      * dataset-tool. The fallback exists because an IDE does not inherit the shell's
      * environment, and that folder is outside the git repository.
      */
-    private static Path locatePmd() throws IOException {
+    public static Path locatePmd() throws IOException {
         String env = System.getenv("PMD_HOME");
         if (env != null && !env.isBlank()) {
             return Path.of(env);
@@ -125,7 +132,7 @@ public class PmdSmells {
     }
 
     /** Write this release's src/main Java files into dest, preserving repo-relative paths. */
-    private static int exportSources(Repository repo, String sha, Path dest) throws IOException {
+    public static int exportSources(Repository repo, String sha, Path dest) throws IOException {
         int n = 0;
         try (RevWalk walk = new RevWalk(repo);
              TreeWalk tw = new TreeWalk(repo)) {
@@ -148,7 +155,7 @@ public class PmdSmells {
         return n;
     }
 
-    private static int runPmd(Path pmd, Path dir, Path report)
+    public static int runPmd(Path pmd, Path dir, Path report)
             throws IOException, InterruptedException {
 
         List<String> cmd = new ArrayList<>(List.of(
@@ -167,7 +174,7 @@ public class PmdSmells {
     }
 
     /** Violations per class, keyed by repo-relative path. */
-    private static Map<String, Integer> countViolations(Path work, Path report) throws IOException {
+    public static Map<String, Integer> countViolations(Path work, Path report) throws IOException {
         Map<String, Integer> counts = new HashMap<>();
         if (!Files.exists(report)) {
             return counts;                      // PMD writes nothing when there are none
@@ -189,7 +196,7 @@ public class PmdSmells {
         return counts;
     }
 
-    private static List<String> listExported(Path work) throws IOException {
+    public static List<String> listExported(Path work) throws IOException {
         List<String> out = new ArrayList<>();
         if (!Files.exists(work)) {
             return out;
@@ -201,7 +208,7 @@ public class PmdSmells {
         return out;
     }
 
-    private static void deleteTree(Path dir) throws IOException {
+    public static void deleteTree(Path dir) throws IOException {
         if (!Files.exists(dir)) {
             return;
         }

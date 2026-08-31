@@ -101,7 +101,7 @@ public class SonarSmells {
     }
 
     /** A component omits a measure entirely when its value is zero. */
-    private static int measureValue(JSONObject component, String metric) {
+    public static int measureValue(JSONObject component, String metric) {
         JSONArray measures = component.optJSONArray("measures");
         if (measures == null) {
             return 0;
@@ -120,7 +120,7 @@ public class SonarSmells {
      * the workspace root (three levels above dataset-tool). That file lives outside
      * the git repository and is never committed.
      */
-    private static String readToken() throws IOException {
+    public static String readToken() throws IOException {
         String env = System.getenv("SONAR_TOKEN");
         if (env != null && !env.isBlank()) {
             return env.trim();

@@ -118,3 +118,48 @@ mvn -q exec:java -Dexec.mainClass=isw2.openjpa.m3.WhatIfEvaluator
 ```
 
 A couple of minutes: one forest, not a hundred.
+
+---
+
+# Milestone 4 results — class selection
+
+Produced by `isw2.openjpa.m4`, over the project's last release (**4.1.1**), not the last
+release of the Milestone 1 dataset. The two selected classes are written to
+`isw2/classes.txt` and are also the classes used by the testing module.
+
+### `m4_selection.csv`
+**The deliverable.** The two classes chosen by the name rule — first name Ilie, I = 9,
+9 mod 5 = 4, case 4 "first +4 and last -4" — which is position 5 and position 287 of the
+291-class filtered ranking.
+
+### `m4_ranked.csv`
+The 291 classes that survive the size filter, in ranking order, with both detectors' smell
+counts and the structural metrics. Positions 5 and 287 are the selection.
+
+### `m4_classes.csv`
+All 1,487 in-scope classes of 4.1.1 with declared kind, LOC, NCSS, method count and PMD smell
+count. The structural columns are what the "filter out classes that are too small" step is
+decided from; SonarCloud returns smell counts and nothing that answers "is this an interface
+with no body worth refactoring".
+
+### `m4_sonar_smells.csv`
+SonarCloud `code_smells` per file for the 4.1.1 analysis. This is the ranking.
+
+### `m4_diagnostics.csv`, `m4_diagnostics.txt`
+The individual SonarCloud issues for the two selected classes — rule, severity, line and
+message. The `.txt` is grouped by rule, most frequent first, and is the form that goes into
+the refactoring prompt. 126 issues for `SelectImpl`, 1 for `StringDistance`, both matching
+their `code_smells` measure exactly.
+
+## Reproducing
+
+```
+mvn -q exec:java -Dexec.mainClass=isw2.openjpa.m4.ClassRanking      # PMD + structure
+mvn -q exec:java -Dexec.mainClass=isw2.openjpa.m4.ReleaseSmells     # SonarCloud counts
+mvn -q exec:java -Dexec.mainClass=isw2.openjpa.m4.ClassSelector     # join, filter, select
+mvn -q exec:java -Dexec.mainClass=isw2.openjpa.m4.Diagnostics       # issues for the two
+```
+
+`ReleaseSmells` and `Diagnostics` read a SonarCloud analysis of 4.1.1; see the methodology
+document for how that analysis is produced, including the worktree, the JDK split between
+build and scan, and the scanner heap setting.

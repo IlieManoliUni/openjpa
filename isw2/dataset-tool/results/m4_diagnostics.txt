@@ -1,0 +1,95 @@
+SelectImpl  (C_0 high (first +4))
+openjpa-jdbc/src/main/java/org/apache/openjpa/jdbc/sql/SelectImpl.java
+126 SonarCloud code smells
+
+java:S116      x50   Rename this field "cachedColumnAlias_" to match the regular expression '^[a-z][a-zA-Z0-9]*$'.
+               lines: 111, 112, 121, 124, 127, 128, 129, 132, 133, 134, 135, 136, 137, 138, 139, 142, 143, 144, 145, 146, ... (30 more)
+
+java:S3776     x14   Refactor this method to reduce its Cognitive Complexity from 20 to the 15 allowed.
+               lines: 430, 1130, 1186, 1472, 1753, 1780, 2005, 2043, 2092, 2122, 2612, 3098, 3181, 3463
+
+java:S6213     x11   Rename this variable to not match a restricted identifier.
+               lines: 1372, 1753, 2389, 2797, 2811, 2879, 2925, 2935, 3134, 3185, 3558
+
+java:S1172     x10   Remove this unused method parameter "ctx".
+               lines: 430, 509, 529, 538, 559, 1568, 1593, 1618, 1643, 2239
+
+java:S1186     x6    Add a nested comment explaining why this method is empty, throw an UnsupportedOperationException or complete the implementation.
+               lines: 2351, 2759, 2826, 2921, 3026, 3577
+
+java:S108      x5    Remove this block of code, fill it in, or add a comment explaining why it is empty.
+               lines: 400, 402, 404, 460, 461
+
+java:S1596     x3    Replace "Collections.EMPTY_LIST" by "Collections.emptyList()".
+               lines: 585, 690, 3465
+
+java:S107      x2    Method has 8 parameters, which is greater than 7 authorized.
+               lines: 1030, 1472
+
+java:S1197     x2    Move the array designators [] to the type.
+               lines: 3261, 3305
+
+java:S125      x2    This block of commented-out lines of code should be removed.
+               lines: 2186, 2248
+
+java:S135      x2    Reduce the total number of break and continue statements in this loop to use at most one.
+               lines: 1162, 3113
+
+java:S1905     x2    Remove this unnecessary cast to "Object".
+               lines: 1360, 1813
+
+java:S2094     x2    Remove this empty class, write its code or make it an "interface".
+               lines: 2405, 2411
+
+java:S3626     x2    Remove this redundant jump.
+               lines: 3274, 3277
+
+java:S4144     x2    Update this method so that its implementation is not identical to "joinRelation" on line 2984.
+               lines: 2977, 2993
+
+java:S1066     x1    Merge this if statement with the enclosing one.
+               lines: 1766
+
+java:S1168     x1    Return an empty collection instead of null.
+               lines: 1387
+
+java:S1192     x1    Define a constant instead of duplicating this literal " AND " 8 times.
+               lines: 1504
+
+java:S1481     x1    Remove this unused "orig" local variable.
+               lines: 2614
+
+java:S1659     x1    Declare "selSub" on a separate line.
+               lines: 1811
+
+java:S1854     x1    Remove this useless assignment to local variable "orig".
+               lines: 2614
+
+java:S2157     x1    Add a "clone()" method to this class.
+               lines: 3033
+
+java:S2160     x1    Override the "equals" method in this class.
+               lines: 3361
+
+java:S2589     x1    Remove this expression which always evaluates to "true"
+               lines: 2056
+
+java:S3358     x1    Extract this nested ternary operation into an independent statement.
+               lines: 1494
+
+java:S5411     x1    Use a primitive boolean expression here.
+               lines: 2648
+
+
+------------------------------------------------------------------------------
+
+StringDistance  (C_0 low (last -4))
+openjpa-lib/src/main/java/org/apache/openjpa/lib/util/StringDistance.java
+1 SonarCloud code smells
+
+java:S1118     x1    Add a private constructor to hide the implicit public one.
+               lines: 29
+
+
+------------------------------------------------------------------------------
+

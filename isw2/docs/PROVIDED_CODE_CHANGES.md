@@ -1541,3 +1541,294 @@ file-recurrence inflation of M2-T1. The what-if result is conditional on all of 
 Beyond the requirement: the feature profile (which Milestone 4 consumes), the
 within-model comparison alongside the reference formula, the expected-count column, the partial
 cleaning curve, and the quantification of the extrapolation in M3-T1.
+
+---
+
+# Milestone 4 — automated refactoring: class selection
+
+The Milestone 4 assignment specifies:
+
+```
+8. Class Selection
+   1. Rank all classes of the last release of the project based on Nsmells
+   2. Filter out classes that are too small (e.g., few and simple methods).
+   3. Select two classes based on your name
+      1. Take the first letter of your first name (e.g., D for Davide)
+      2. Take the number of the letter (e.g., D = 4)
+      3. X = number mod 5 (e.g. X = 4)
+      switch (X) { case 0: first and last; ... case 4: first +4 and last -4; }
+```
+
+## M4-C1 — the selection rule uses the FIRST name, the project rule uses the LAST name
+
+The two selection algorithms in this course look almost identical and differ in one word.
+
+| Rule | Which name | Modulo | Applied here |
+|---|---|---|---|
+| Project selection (M1, M3) | **last** name, "F for Falessi" | 6 | Manoli -> M = 13 -> 13 mod 6 = 1 -> **OPENJPA** |
+| Class selection (M4) | **first** name, "D for Davide" | 5 | Ilie -> I = 9 -> 9 mod 5 = 4 -> **first +4 and last -4** |
+
+The examples in the source confirm the distinction: the author uses his own surname for the
+project rule and his own forename for the class rule.
+
+Recorded as a change because a previous attempt at this project applied the surname initial
+to both, obtaining X = 13 mod 5 = 3 and therefore case 3 (first +3, last -3) rather than
+case 4. Both selected classes were consequently wrong.
+
+## M4-C2 — "the last release of the project" is 4.1.1, not the last release of dataset A
+
+Dataset A keeps only the oldest third of the releases under the 66% rule, so its final entry
+is 1.2.2 (January 2010). That is the last release of the **dataset**, not of the **project**;
+the project's last release is 4.1.1 (May 2025).
+
+The wording is used elsewhere in the course material for a study spanning a project's entire
+release history, where it can only mean the project's final release.
+
+Three practical requirements agree with the literal reading, and none of them is satisfiable
+against a 2010 maintenance branch:
+
+- the assignment asks whether the refactored class compiles, alone or with the system;
+- it requires SonarCloud diagnostics in the refactoring prompt, and SonarCloud cannot analyse
+  2006-2010 era code whose Maven build no longer works - the reason PMD was used for the
+  per-release NSmells column in Milestone 1;
+- the prompt states that the refactored class must work with the other components of the
+  system "as C_0 currently does".
+
+Note also that 1.2.2 sits on the 1.2.x maintenance branch, the `11 -> 14` lineage identified
+in the release-ancestry analysis, so it is not even on the project's main line.
+
+## M4-C3 — SonarCloud is the ranking oracle, PMD is the cross-check
+
+The Milestone 1 material permits either tool ("compute NSmells via SonarCloud or PMD or
+similar"), so the ranking could have used the cheaper PMD pass. It does not, and the reason
+is internal consistency rather than preference.
+
+The assignment fixes the detector elsewhere: the refactoring prompt must state the smells to
+remove **as reported by SonarCloud**, and the results section asks whether the refactored
+class still has smells and whether they are old or new. That before/after comparison is only
+meaningful if both sides come from the same detector. Selecting with one tool and defining
+the work with another would be incoherent.
+
+A SonarCloud baseline on 4.1.1 was therefore required regardless of how the ranking was
+produced, so ranking with it cost nothing additional.
+
+PMD is run over the same release anyway, through the identical code path, rulesets and
+counting used for dataset A. Its purpose is to answer "would the selection have been
+different with another tool":
+
+**Spearman(SonarCloud, PMD) = 0.768 over 1,487 classes.**
+
+The ranking is a property of the code rather than of the detector.
+
+## Scope alignment
+
+The first PMD pass exported every `src/main/java` file - 1,633 - and ranked
+`openbooks/tools/parser/JavaParser` first with 2,747 violations, with `JavaLexer` fifth.
+Both are ANTLR-generated code inside the OpenBooks sample application, and SonarCloud does
+not see either: its exclusions drop `openjpa-examples`, `openjpa-integration`,
+`openjpa-tools` and `openjpa-project`.
+
+That is a scope mismatch rather than a disagreement between detectors, and it would have made
+the cross-check meaningless. The PMD pass now applies the same module exclusions:
+
+```
+exported                                             1,633
+out of scope (examples/integration/tools/project)      146
+in scope                                             1,487
+SonarCloud java files                                1,487    exact match
+classes measured by PMD but absent from SonarCloud       0
+```
+
+The exclusions are methodological, not convenient. Sample applications, integration
+harnesses, build tooling and documentation are not product classes, and refactoring
+generated code is meaningless because the next build regenerates it from its grammar.
+
+## The size filter
+
+The assignment says to filter out classes that are "too small (e.g., few and simple
+methods)" without saying where the line falls. Three criteria are applied, and every
+threshold is a median of this release rather than a chosen number, so all three are
+properties of the codebase.
+
+| Criterion | Threshold | Rationale |
+|---|---|---|
+| declared kind is `class` | - | Interfaces, annotations and enums have no method bodies to refactor. The unfiltered ranking's bottom ten was made entirely of them, three to four lines each with zero methods. |
+| NCSS >= median | **76** | Size. |
+| methods >= median | **8** | "Few methods". |
+| NCSS / methods >= median | **8.00** | "Simple methods". |
+
+```
+1,487 in scope -> 1,103 concrete classes -> 291 eligible
+```
+
+### The third criterion, and why it was added after the fact
+
+With only the first two, the low selection was `AbstractFieldManager`: twenty methods, each
+a single `throw new InternalException()`, whose own javadoc reads *"Throws exceptions for all
+methods"*. It scores zero smells because there is nothing in it to smell, and it passed a
+size test because twenty one-line methods plus imports reach 86 NCSS.
+
+That is a filter measuring "few methods" while ignoring "simple methods", which is half of
+what the criterion says. The median class here is 8.0 NCSS per method;
+`AbstractFieldManager` is 4.3.
+
+Adding a criterion after seeing which class the previous one selected deserves scrutiny, so
+the check that matters: **the high selection is identical with and without it.** Only the low
+end moves, which is where the defect was. The change cannot have been chosen to reach a
+particular class at the top.
+
+There is also direct evidence that the criterion matters. A previous attempt at this project
+used a filter that admitted its low class at 4.3 NCSS per method - the same signature - and
+recorded that the language model hallucinated on it, claiming the class "declares no methods"
+when it declares 102, and returned an empty class body that produced 34 compilation errors
+across 17 files. Asking a model to refactor a class with no substance in it produces nothing.
+
+The consequence is not confined to Milestone 4: both selected classes are also the input to
+the testing module, and a class whose every method throws unconditionally admits no test
+beyond asserting that it throws.
+
+## The selection
+
+Ordering is by SonarCloud smells descending, then NCSS descending, then path. The tie-break
+is not decoration: many clean classes share a smell count of zero, so without a documented
+secondary key the low selection would depend on file-system iteration order and would not
+reproduce.
+
+`first +4` is position 5 of 291; `last -4` is position 287 of 291.
+
+| Role | Position | Class | Sonar | PMD | NCSS | Methods | NCSS/method |
+|---|---|---|---|---|---|---|---|
+| C_0 high | 5 | `org.apache.openjpa.jdbc.sql.SelectImpl` | 126 | 230 | 2,703 | 305 | 8.9 |
+| C_0 low | 287 | `org.apache.openjpa.lib.util.StringDistance` | 1 | 3 | 92 | 8 | 11.5 |
+
+Written to `isw2/classes.txt` in the format the testing module requires: one per line,
+alphabetical, fully qualified.
+
+Only three of the 291 eligible classes have zero SonarCloud smells and none falls at position
+287, so the low selection has one smell rather than none. That is arguably the better
+experiment: one smell going to zero is a checkable before/after result, whereas zero staying
+zero would demonstrate nothing.
+
+## Diagnostics for the two classes
+
+The counts are not sufficient for the refactoring prompt, which must state the smells to be
+removed. Individual issues come from a different endpoint - `api/issues/search` rather than
+`measures/component_tree` - filtered to open issues of type CODE_SMELL so that the list is
+comparable to the measure used for the ranking. The 10,000-issue cap that forced the
+aggregate endpoint for the ranking is irrelevant for two files.
+
+**Self-check.** The number of issues returned must equal the `code_smells` measure recorded
+during selection. The two figures come from different endpoints computing the same quantity,
+so a mismatch would mean one of them is filtered differently than assumed and neither could
+be trusted.
+
+```
+SelectImpl        issues 126   measure 126   match
+StringDistance    issues   1   measure   1   match
+```
+
+### `StringDistance` - one smell
+
+`java:S1118` - add a private constructor to hide the implicit public one. A utility class of
+static methods should not be instantiable. One line, no behavioural risk.
+
+### `SelectImpl` - 126 smells, and what they actually are
+
+Severity: 22 CRITICAL, 37 MAJOR, 67 MINOR. By rule, the largest groups:
+
+| Rule | Count | What it asks for |
+|---|---|---|
+| `java:S116` | **50** | rename a field to match `^[a-z][a-zA-Z0-9]*$` |
+| `java:S3776` | 14 | reduce cognitive complexity |
+| `java:S6213` | 11 | rename a variable that matches a restricted identifier |
+| `java:S1172` | 10 | remove an unused method parameter |
+| `java:S1186` | 6 | empty method needs a comment or an exception |
+| `java:S108` | 5 | empty block |
+
+**49 of the 50 `S116` findings are leading-underscore private fields** - `_conf`, `_dict`,
+`_aliases`, `_tables`, `_ordered`, `_preJoins` and so on. That is Apache OpenJPA's house
+naming convention for private fields, applied consistently across all 1,487 classes in the
+analysis.
+
+So **39% of this class's measured technical debt is a project-wide style choice rather than a
+defect**, and 48% of it is renaming of one kind or another once `S6213` is included. That
+ceiling is set by the smell oracle's default rule set, not by the code, and it bounds what
+any refactoring of this class can honestly be said to have achieved.
+
+Whether the renames are *safe* was checked rather than assumed: `SelectImpl` is not
+serializable - no `Serializable`, no `serialVersionUID`, no `writeObject` or `readObject` -
+and all 49 fields are `private`, so renaming them breaks no external caller and no
+serialized form. The objection to renaming is consistency with the codebase, not correctness.
+This differs from the previous attempt at this project, where the model refused the same rule
+on a class that *was* serializable and gave that as its reason.
+
+## Build and analysis of the 4.1.1 release
+
+The release is checked out as a git worktree beside the repository, so the working tree and
+the coursework directory are untouched, and `isw2/` does not exist in 4.1.1 - which
+guarantees the analysis contains only OpenJPA code.
+
+| Step | Toolchain | Note |
+|---|---|---|
+| build | **JDK 11** | 4.1.1 targets Java 11 and performs bytecode enhancement during the build, which newer JDKs break |
+| scan | **JDK 21** | current SonarCloud scanners require Java 17+ to run; `sonar:sonar` only reads the already-built classes |
+
+The build is run with the report plugins disabled - `checkstyle.skip`, `rat.skip`,
+`maven.javadoc.skip`, `pmd.skip`, `cpd.skip`. Milestone 4 needs compiled classes, not the
+project's own quality gates, and SonarCloud performs its own analysis regardless. Checkstyle
+9.3 reports 283 violations on `openjpa-lib` alone and fails the build by default.
+
+A full-reactor build can also fail in `openjpa-examples/openbooks`, whose Ant script resolves
+OpenJPA jars by file path inside the local Maven repository rather than through Maven's
+dependency resolution. `mvn package` never writes to the local repository - only `install`
+does - so the file it looks for may not be there. The documented reproduction therefore
+excludes the same modules the analysis excludes, which makes the build deterministic and
+compiles only what is measured.
+
+The scanner needs `SONAR_SCANNER_JAVA_OPTS=-Xmx4g`; it runs in its own JVM that `MAVEN_OPTS`
+does not reach, and the default heap exhausts inside the taint-analysis engine. The run took
+one hour.
+
+### Observation, not a conclusion
+
+The 4.1.1 analysis reports 9,415 smells over 1,487 files; the Milestone 1 analysis of master
+(4.2.0-SNAPSHOT) reported 10,664 over 1,515. Every class in the top six is lower in 4.1.1,
+and the top two are ordered differently. That is consistent with 326 commits of drift, but
+the two runs also differed in configuration and the effects cannot be separated from the data
+available. It is recorded as an observation. Milestone 4 uses only the 4.1.1 analysis.
+
+---
+
+# Milestone 4 — threats to validity, class selection
+
+## M4-T1 The smell oracle counts a naming convention as 39% of the debt
+
+Fifty of `SelectImpl`'s 126 smells ask for private fields to be renamed away from the
+project's own convention. A refactoring that correctly declines them cannot exceed roughly
+61% smell removal, and one that accepts them makes the class inconsistent with every other
+class in the project. Any percentage reported for this class must be read against that.
+
+## M4-T2 The method count is a heuristic
+
+Declared kind and method count come from a character-scanning source analysis, not from a
+Java parser. It strips comments and literals in one pass and then matches method
+declarations by pattern. It is deliberately approximate because it drives a coarse filter,
+and the classes that survive to selection are inspected by hand - but the 8.00 median that
+sets the third filter threshold rests on it, and a parser would give slightly different
+numbers.
+
+## M4-T3 One release, one project
+
+The ranking, the filter thresholds and both selected classes are specific to OpenJPA 4.1.1.
+Nothing here establishes that the same procedure on another project or another release would
+behave similarly.
+
+## M4-T4 The low class is small by construction
+
+The selection rule takes a class from the clean end of the ranking, so the low class is
+necessarily one with few smells. The testing module separately advises against classes whose
+tests would trivially reach full coverage. `StringDistance` is small (92 NCSS, 8 methods),
+though it contains a real dynamic-programming algorithm with nested loops, threshold logic
+and clamping, so branch coverage and mutation score are not trivial even where statement
+coverage is easy. The tension is inherent to combining the two requirements, and the testing
+module explicitly defers the class choice to this selection algorithm.

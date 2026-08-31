@@ -1,0 +1,3 @@
+Role,Position,Module,Class,SonarSmells,PmdSmells,LOC,NCSS,Methods,LinesPerMethod,Path
+C_0 high (first +4),5,openjpa-jdbc,SelectImpl,126,230,3627,2703,305,8.86,openjpa-jdbc/src/main/java/org/apache/openjpa/jdbc/sql/SelectImpl.java
+C_0 low (last -4),287,openjpa-lib,StringDistance,1,3,197,92,8,11.50,openjpa-lib/src/main/java/org/apache/openjpa/lib/util/StringDistance.java
