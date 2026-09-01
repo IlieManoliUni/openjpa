@@ -28,6 +28,9 @@ import java.util.Collection;
  */
 public class StringDistance {
 
+    private StringDistance() {
+    }
+
     /**
      * Returns the candidate string with the closest Levenshtein distance
      * to the given string.
