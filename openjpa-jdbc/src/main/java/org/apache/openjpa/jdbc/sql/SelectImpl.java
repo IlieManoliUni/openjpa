@@ -91,6 +91,7 @@ public class SelectImpl
     private static final int RECORD_ORDERED = 2 << 11;
     private static final int GROUPING = 2 << 12;
     private static final int FORCE_COUNT = 2 << 13;
+    private static final String AND = " AND ";
 
     private static final String[] TABLE_ALIASES = new String[16];
     private static final String[] ORDER_ALIASES = new String[16];
@@ -400,11 +401,11 @@ public class SelectImpl
             return databaseDictionary.applyRange(this, count);
         } finally {
             if (rs != null)
-                try { rs.close(); } catch (SQLException se) {}
+                try { rs.close(); } catch (SQLException se) { /* Preserve the original exception while closing resources. */ }
             if (stmnt != null)
-                try { stmnt.close(); } catch (SQLException se) {}
+                try { stmnt.close(); } catch (SQLException se) { /* Preserve the original exception while closing resources. */ }
             if (conn != null)
-                try { conn.close(); } catch (SQLException se) {}
+                try { conn.close(); } catch (SQLException se) { /* Preserve the original exception while closing resources. */ }
         }
     }
 
@@ -460,8 +461,8 @@ public class SelectImpl
         } catch (SQLException se) {
             // clean up statement
             if (stmnt != null)
-                try { stmnt.close(); } catch (SQLException se2) {}
-            try { conn.close(); } catch (SQLException se2) {}
+                try { stmnt.close(); } catch (SQLException se2) { /* Preserve the original exception while closing resources. */ }
+            try { conn.close(); } catch (SQLException se2) { /* Preserve the original exception while closing resources. */ }
             throw se;
         }
         return getEagerResult(conn, stmnt, rs, store, fetch, forUpdate, sql);
@@ -1544,7 +1545,7 @@ public class SelectImpl
             }
 
             if (count > 0)
-                buf.append(" AND ");
+                buf.append(AND);
             buf.append(getColumnAlias(fromCols[i], pj));
             if (val == null)
                 buf.append(" IS ");
@@ -1556,7 +1557,7 @@ public class SelectImpl
         if (constCols != null && constCols.length > 0) {
             for (int i = 0; i < constCols.length; i++, count++) {
                 if (count > 0)
-                    buf.append(" AND ");
+                    buf.append(AND);
                 buf.append(getColumnAlias(constCols[i], pj));
 
                 if (vals[i] == null)
@@ -1567,7 +1568,7 @@ public class SelectImpl
             }
         }
 
-        where(buf, pj);
+        appendWhere(buf);
     }
 
     /**
@@ -1602,13 +1603,14 @@ public class SelectImpl
 
     @Override
     public void where(SQLBuffer sql, Joins joins) {
-        where(sql, getJoins(joins, true));
+        getJoins(joins, true);
+        appendWhere(sql);
     }
 
     /**
      * Add the given condition to the WHERE clause.
      */
-    private void where(SQLBuffer sql, PathJoins pj) {
+    private void appendWhere(SQLBuffer sql) {
         // no need to use joins...
         if (sql == null || sql.isEmpty())
             return;
@@ -1616,7 +1618,7 @@ public class SelectImpl
         if (where == null)
             where = new SQLBuffer(databaseDictionary);
         else if (!where.isEmpty())
-            where.append(" AND ");
+            where.append(AND);
         where.append(sql);
     }
 
@@ -1627,13 +1629,14 @@ public class SelectImpl
 
     @Override
     public void where(String sql, Joins joins) {
-        where(sql, getJoins(joins, true));
+        getJoins(joins, true);
+        appendWhere(sql);
     }
 
     /**
      * Add the given condition to the WHERE clause.
      */
-    private void where(String sql, PathJoins pj) {
+    private void appendWhere(String sql) {
         // no need to use joins...
         if (StringUtil.isEmpty(sql))
             return;
@@ -1641,7 +1644,7 @@ public class SelectImpl
         if (where == null)
             where = new SQLBuffer(databaseDictionary);
         else if (!where.isEmpty())
-            where.append(" AND ");
+            where.append(AND);
         where.append(sql);
     }
 
@@ -1652,13 +1655,14 @@ public class SelectImpl
 
     @Override
     public void having(SQLBuffer sql, Joins joins) {
-        having(sql, getJoins(joins, true));
+        getJoins(joins, true);
+        appendHaving(sql);
     }
 
     /**
      * Add the given condition to the HAVING clause.
      */
-    private void having(SQLBuffer sql, PathJoins pj) {
+    private void appendHaving(SQLBuffer sql) {
         // no need to use joins...
         if (sql == null || sql.isEmpty())
             return;
@@ -1666,7 +1670,7 @@ public class SelectImpl
         if (having == null)
             having = new SQLBuffer(databaseDictionary);
         else if (!having.isEmpty())
-            having.append(" AND ");
+            having.append(AND);
         having.append(sql);
     }
 
@@ -1677,13 +1681,14 @@ public class SelectImpl
 
     @Override
     public void having(String sql, Joins joins) {
-        having(sql, getJoins(joins, true));
+        getJoins(joins, true);
+        appendHaving(sql);
     }
 
     /**
      * Add the given condition to the HAVING clause.
      */
-    private void having(String sql, PathJoins pj) {
+    private void appendHaving(String sql) {
         // no need to use joins...
         if (StringUtil.isEmpty(sql))
             return;
@@ -1691,7 +1696,7 @@ public class SelectImpl
         if (having == null)
             having = new SQLBuffer(databaseDictionary);
         else if (!having.isEmpty())
-            having.append(" AND ");
+            having.append(AND);
         having.append(sql);
     }
 
@@ -1805,15 +1810,13 @@ public class SelectImpl
         else if (!pre) {
             if ((flags & OUTER) != 0)
                 pj = (PathJoins) outer(pj);
-            if (recordJoins) {
-                if (!pj.isEmpty()) {
-                    if (selectJoins == null)
-                        selectJoins = new SelectJoins(this);
-                    if (selectJoins.joins() == null)
-                        selectJoins.setJoins(new JoinSet(pj.joins()));
-                    else
-                        selectJoins.joins().addAll(pj.joins());
-                }
+            if (recordJoins && !pj.isEmpty()) {
+                if (selectJoins == null)
+                    selectJoins = new SelectJoins(this);
+                if (selectJoins.joins() == null)
+                    selectJoins.setJoins(new JoinSet(pj.joins()));
+                else
+                    selectJoins.joins().addAll(pj.joins());
             }
         }
         return pj;
@@ -1851,7 +1854,8 @@ public class SelectImpl
             }
             if (subsels != null) {
                 sel.subsels = new ArrayList(subsels.size());
-                SelectImpl sub, selSub;
+                SelectImpl sub;
+                SelectImpl selSub;
                 for (int j = 0; j < subsels.size(); j++) {
                     sub = subsels.get(j);
                     selSub = (SelectImpl) sub.fullClone(1);
@@ -2011,7 +2015,7 @@ public class SelectImpl
             return;
 
         if (!buf.isEmpty())
-            buf.append(" AND ");
+            buf.append(AND);
         Join join = null;
         for (Iterator itr = ((PathJoins) joins).joins().joinIterator();
             itr.hasNext();) {
@@ -2028,7 +2032,7 @@ public class SelectImpl
             }
 
             if (itr.hasNext())
-                buf.append(" AND ");
+                buf.append(AND);
         }
     }
 
@@ -2096,7 +2100,7 @@ public class SelectImpl
                 collectOuterJoins(j2);
                 if (!j2.isEmpty())
                     flags |= IMPLICIT_DISTINCT;
-            } else if (j2Empty && !j1Empty) {
+            } else if (!j1Empty) {
                 collectOuterJoins(j1);
                 if (!j1.isEmpty())
                     flags |= IMPLICIT_DISTINCT;
@@ -2226,10 +2230,6 @@ public class SelectImpl
 
         // not found; create alias
         i = aliasSize(false, null);
-//        System.out.println("GetTableIndex\t"+
-//                ((parentSelect != null) ? "Sub" :"") +
-//                " created alias: "+
-//                i.intValue()+ " "+ key);
         recordTableAlias(table, key, i);
         return i;
     }
@@ -2251,7 +2251,7 @@ public class SelectImpl
         if (!create)
             i = sel.findAlias(table, key);  // find in parent and in myself
         else
-            i = sel.getAlias(table, key); // find in myself
+            i = sel.getAlias(key); // find in myself
         if (i != null)
             return i;
 
@@ -2279,7 +2279,7 @@ public class SelectImpl
             (corrVar == null || (thisCtx != null && ctx() == thisCtx)));
     }
 
-    private Integer getAlias(Table table, Object key) {
+    private Integer getAlias(Object key) {
         Integer alias = null;
         if (aliasMappings != null)
             alias = (Integer) aliasMappings.get(key);
@@ -2288,10 +2288,6 @@ public class SelectImpl
 
     private int createAlias(Table table, Object key) {
         Integer i = ctx().nextAlias();
-//        System.out.println("\t"+
-//                ((parentSelect != null) ? "Sub" :"") +
-//                "Query created alias: "+
-//                i.intValue()+ " "+ key);
         recordTableAlias(table, key, i);
         return i;
     }
@@ -2392,6 +2388,7 @@ public class SelectImpl
 
     @Override
     public void nullJoins() {
+        // This SelectImpl instance has no join state to clear.
     }
 
     @Override
@@ -2646,7 +2643,6 @@ public class SelectImpl
         @Override
         protected int findObject(Object obj, Joins joins)
             throws SQLException {
-            Object orig = obj;
             if (columnPosition == owningSelect.selects.size())
                 columnPosition = 0;
 
@@ -2792,6 +2788,7 @@ public class SelectImpl
 
         @Override
         public void nullJoins() {
+            // This result-level PathJoins implementation has no join state to clear.
         }
 
         @Override
@@ -2859,6 +2856,7 @@ public class SelectImpl
 
         @Override
         public void moveJoinsToParent() {
+            // This result-level PathJoins implementation has no joins to move.
         }
 
         private record CachedColumnAliasKey(Column col, PathJoins pjs) {
@@ -2935,6 +2933,7 @@ public class SelectImpl
 
         @Override
         public void nullJoins() {
+            // Path-only joins do not maintain a JoinSet to clear.
         }
 
         @Override
@@ -3040,6 +3039,7 @@ public class SelectImpl
 
     @Override
     public void moveJoinsToParent() {
+        // The base path-only implementation has no joins to move.
     }
 }
 
@@ -3286,6 +3286,7 @@ public class SelectImpl
             }
 
             if (found1 && found2) {
+                // Both aliases belong to this select, so the join remains unchanged.
             }
             else if (!found1 && !found2) {
                 j.setIsNotMyJoin();
@@ -3589,6 +3590,7 @@ public class SelectImpl
 
     @Override
     public void moveJoinsToParent() {
+        // This root SelectJoins instance has no parent join set to receive its joins.
     }
 }
 
