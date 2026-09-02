@@ -1163,18 +1163,16 @@ public class SelectImpl
         boolean joined = false;
         for (sup = mapping.getJoinablePCSuperclassMapping(); sup != null;
             mapping = sup, sup = mapping.getJoinablePCSuperclassMapping()) {
-            if (sup.getTable() == mapping.getTable())
-                continue;
-
-            if (mapping.getTable() != sup.getTable()
-                && getTableIndex(mapping.getTable(), pj, false) == -1
-                && getTableIndex(sup.getTable(), pj, false) != -1) {
-                if (pj == null)
-                    pj = (PathJoins) newJoins();
-                pj = (PathJoins) mapping.joinSuperclass(pj, false);
-                joined = true;
-            } else
-                break;
+            if (mapping.getTable() != sup.getTable()) {
+                if (getTableIndex(mapping.getTable(), pj, false) == -1
+                    && getTableIndex(sup.getTable(), pj, false) != -1) {
+                    if (pj == null)
+                        pj = (PathJoins) newJoins();
+                    pj = (PathJoins) mapping.joinSuperclass(pj, false);
+                    joined = true;
+                } else
+                    break;
+            }
         }
         if (joined)
             where(pj);
@@ -1535,7 +1533,12 @@ public class SelectImpl
         int count = 0;
         for (int i = 0; i < toCols.length; i++, count++) {
             if (pks == null) {
-                val = (oid == null) ? null : relationId ? oid : ((Id) oid).getId();
+                if (oid == null)
+                    val = null;
+                else if (relationId)
+                    val = oid;
+                else
+                    val = ((Id) oid).getId();
             } else {
                 // must be app identity; use pk index to get correct pk value
                 join = mapping.assertJoinable(toCols[i]);
@@ -2983,13 +2986,15 @@ public class SelectImpl
 
         @Override
         public Joins join(ForeignKey fk, boolean inverse, boolean toMany) {
-            append(variable);
-            variable = null;
-            return this;
+            return join();
         }
 
         @Override
         public Joins outerJoin(ForeignKey fk, boolean inverse, boolean toMany) {
+            return join();
+        }
+
+        private Joins join() {
             append(variable);
             variable = null;
             return this;
@@ -2998,15 +3003,16 @@ public class SelectImpl
         @Override
         public Joins joinRelation(String name, ForeignKey fk,
             ClassMapping target, int subs, boolean inverse, boolean toMany) {
-            append(name);
-            append(variable);
-            variable = null;
-            return this;
+            return joinRelation(name);
         }
 
         @Override
         public Joins outerJoinRelation(String name, ForeignKey fk,
             ClassMapping target, int subs, boolean inverse, boolean toMany) {
+            return joinRelation(name);
+        }
+
+        private Joins joinRelation(String name) {
             append(name);
             append(variable);
             variable = null;
@@ -3047,8 +3053,7 @@ public class SelectImpl
      * Joins implementation.
      */
     private static class SelectJoins
-        extends PathJoinsImpl
-        implements Cloneable {
+        extends PathJoinsImpl {
 
         private final SelectImpl owningSelect;
         private JoinSet joinSet = null;
@@ -3126,15 +3131,16 @@ public class SelectImpl
                     this.append(this.variable);
                 } else if (this.path == null && this.correlatedVar != null && owningSelect.databaseDictionary.isImplicitJoin()) {
                     String str = this.variable;
+                    boolean resolved = false;
                     for(Object o : owningSelect.parentSelect.aliasMappings.keySet()){
-                        if (o instanceof Key k) {
+                        if (!resolved && o instanceof Key k) {
                             if (this.correlatedVar.equals(k._path)) {
                                 str = this.correlatedVar;
-                                break;
+                                resolved = true;
                             }
-                        }else if (o.equals(this.correlatedVar)){
+                        }else if (!resolved && o.equals(this.correlatedVar)){
                             str = this.correlatedVar;
-                            break;
+                            resolved = true;
                         }
                     }
                     this.append(str);
