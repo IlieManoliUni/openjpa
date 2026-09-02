@@ -450,10 +450,7 @@ public class SelectImpl
         PreparedStatement stmnt = null;
         ResultSet rs = null;
         try {
-            if (isLRS)
-                stmnt = prepareStatement(conn, sql, fetch, rsType, -1, true);
-            else
-                stmnt = prepareStatement(conn, sql, null, rsType, -1, false);
+            stmnt = prepareExecutionStatement(conn, sql, fetch, rsType, isLRS);
 
             databaseDictionary.setTimeouts(stmnt, fetch, forUpdate);
 
@@ -466,6 +463,15 @@ public class SelectImpl
             throw se;
         }
         return getEagerResult(conn, stmnt, rs, store, fetch, forUpdate, sql);
+    }
+
+    private PreparedStatement prepareExecutionStatement(Connection conn,
+        SQLBuffer sql, JDBCFetchConfiguration fetch, int rsType,
+        boolean isLRS) throws SQLException {
+        if (isLRS)
+            return prepareStatement(conn, sql, fetch, rsType, -1, true);
+        else
+            return prepareStatement(conn, sql, null, rsType, -1, false);
     }
 
     /**
@@ -1136,14 +1142,9 @@ public class SelectImpl
 
         // if this mapping can't select the full pk values, then join to
         // super and recurse
-        ClassMapping sup;
-        if (!mapping.isPrimaryKeyObjectId(true)) {
-            sup = mapping.getJoinablePCSuperclassMapping();
-            if (joins == null)
-                joins = newJoins();
-            joins = mapping.joinSuperclass(joins, false);
-            return primaryKeyOperation(sup, sel, asc, joins, aliasOrder);
-        }
+        if (!mapping.isPrimaryKeyObjectId(true))
+            return primaryKeyOperationOnSuperclass(mapping, sel, asc, joins,
+                aliasOrder);
 
         Column[] cols = mapping.getPrimaryKeyColumns();
         if (isGrouping()) {
@@ -1153,14 +1154,32 @@ public class SelectImpl
 
         PathJoins pj = getJoins(joins, false);
         int seld = 0;
-        for (int i = 0; i < cols.length; i++)
+        for (int i = 0; i < cols.length; i++) {
             if (columnOperation(cols[i], sel, asc, pj, aliasOrder))
                 seld |= 2 << i;
+        }
 
-        // if this mapping has not been used in the select yet (and therefore
-        // is not joined to anything), but has an other-table superclass that
-        // has been used, make sure to join to it
+        PathJoins joinedPj = ensureSuperclassJoinForPrimaryKey(mapping, pj);
+        if (joinedPj != null)
+            where(joinedPj);
+
+        return seld;
+    }
+
+    private int primaryKeyOperationOnSuperclass(ClassMapping mapping,
+        boolean sel, Boolean asc, Joins joins, boolean aliasOrder) {
+        ClassMapping sup = mapping.getJoinablePCSuperclassMapping();
+        if (joins == null)
+            joins = newJoins();
+        joins = mapping.joinSuperclass(joins, false);
+        return primaryKeyOperation(sup, sel, asc, joins, aliasOrder);
+    }
+
+    private PathJoins ensureSuperclassJoinForPrimaryKey(ClassMapping mapping,
+        PathJoins pj) {
         boolean joined = false;
+        ClassMapping sup;
+
         for (sup = mapping.getJoinablePCSuperclassMapping(); sup != null;
             mapping = sup, sup = mapping.getJoinablePCSuperclassMapping()) {
             if (mapping.getTable() != sup.getTable()) {
@@ -1170,14 +1189,12 @@ public class SelectImpl
                         pj = (PathJoins) newJoins();
                     pj = (PathJoins) mapping.joinSuperclass(pj, false);
                     joined = true;
-                } else
+                } else {
                     break;
+                }
             }
         }
-        if (joined)
-            where(pj);
-
-        return seld;
+        return joined ? pj : null;
     }
 
     /**
@@ -1186,29 +1203,45 @@ public class SelectImpl
     private boolean columnOperation(Column col, boolean sel, Boolean asc,
         PathJoins pj, boolean aliasOrder) {
         String as = null;
-        if (asc != null && (aliasOrder || (flags & RECORD_ORDERED) != 0)) {
-            Object id;
-            if (pj == null || pj.path() == null)
-                id = col;
-            else
-                id = getColumnAlias(col, pj);
-            if ((flags & RECORD_ORDERED) != 0) {
-                if (ordered == null)
-                    ordered = new ArrayList(5);
-                ordered.add(id);
-            }
-            if (aliasOrder) {
-                as = toOrderAlias(orders++);
-                selects.setSelectAs(id, as);
-            }
-        }
+
+        if (asc != null && (aliasOrder || (flags & RECORD_ORDERED) != 0))
+            as = prepareColumnOrderingState(col, pj, aliasOrder);
 
         boolean seld = sel && select(col, pj, false);
+
         if (asc != null) {
             String alias = (as != null) ? as : getColumnAlias(col, pj);
             appendOrdering(alias, asc);
         }
         return seld;
+    }
+
+    private String prepareColumnOrderingState(Column col, PathJoins pj,
+        boolean aliasOrder) {
+        Object id;
+        if (pj == null || pj.path() == null)
+            id = col;
+        else
+            id = getColumnAlias(col, pj);
+
+        recordOrderedColumn(id);
+
+        if (!aliasOrder)
+            return null;
+
+        String as = toOrderAlias(orders++);
+        selects.setSelectAs(id, as);
+        return as;
+    }
+
+    private void recordOrderedColumn(Object id) {
+        if ((flags & RECORD_ORDERED) == 0)
+            return;
+
+        if (ordered == null)
+            ordered = new ArrayList(5);
+
+        ordered.add(id);
     }
 
     /**
@@ -1528,24 +1561,20 @@ public class SelectImpl
             pks = ApplicationIds.toPKValues(oid, mapping);
 
         SQLBuffer buf = new SQLBuffer(databaseDictionary);
-        Joinable join;
-        Object val;
+        int count = appendOidColumnConditions(buf, oid, mapping, toCols,
+            fromCols, pj, store, pks, relationId);
+        appendConstantColumnConditions(buf, vals, constCols, pj, count);
+
+        appendWhere(buf);
+    }
+
+    private int appendOidColumnConditions(SQLBuffer buf, Object oid,
+        ClassMapping mapping, Column[] toCols, Column[] fromCols, PathJoins pj,
+        JDBCStore store, Object[] pks, boolean relationId) {
         int count = 0;
         for (int i = 0; i < toCols.length; i++, count++) {
-            if (pks == null) {
-                if (oid == null)
-                    val = null;
-                else if (relationId)
-                    val = oid;
-                else
-                    val = ((Id) oid).getId();
-            } else {
-                // must be app identity; use pk index to get correct pk value
-                join = mapping.assertJoinable(toCols[i]);
-                val = pks[mapping.getField(join.getFieldIndex()).
-                    getPrimaryKeyIndex()];
-                val = join.getJoinValue(val, toCols[i], store);
-            }
+            Object val = resolveWhereJoinValue(oid, mapping, toCols[i], store,
+                pks, relationId);
 
             if (count > 0)
                 buf.append(AND);
@@ -1556,22 +1585,42 @@ public class SelectImpl
                 buf.append(" = ");
             buf.appendValue(val, fromCols[i]);
         }
+        return count;
+    }
 
-        if (constCols != null && constCols.length > 0) {
-            for (int i = 0; i < constCols.length; i++, count++) {
-                if (count > 0)
-                    buf.append(AND);
-                buf.append(getColumnAlias(constCols[i], pj));
-
-                if (vals[i] == null)
-                    buf.append(" IS ");
-                else
-                    buf.append(" = ");
-                buf.appendValue(vals[i], constCols[i]);
-            }
+    private Object resolveWhereJoinValue(Object oid, ClassMapping mapping,
+        Column toCol, JDBCStore store, Object[] pks, boolean relationId) {
+        if (pks == null) {
+            if (oid == null)
+                return null;
+            if (relationId)
+                return oid;
+            return ((Id) oid).getId();
         }
 
-        appendWhere(buf);
+        // must be app identity; use pk index to get correct pk value
+        Joinable join = mapping.assertJoinable(toCol);
+        Object val = pks[mapping.getField(join.getFieldIndex()).
+            getPrimaryKeyIndex()];
+        return join.getJoinValue(val, toCol, store);
+    }
+
+    private void appendConstantColumnConditions(SQLBuffer buf, Object[] vals,
+        Column[] constCols, PathJoins pj, int count) {
+        if (constCols == null || constCols.length == 0)
+            return;
+
+        for (int i = 0; i < constCols.length; i++, count++) {
+            if (count > 0)
+                buf.append(AND);
+            buf.append(getColumnAlias(constCols[i], pj));
+
+            if (vals[i] == null)
+                buf.append(" IS ");
+            else
+                buf.append(" = ");
+            buf.appendValue(vals[i], constCols[i]);
+        }
     }
 
     /**
@@ -1813,16 +1862,19 @@ public class SelectImpl
         else if (!pre) {
             if ((flags & OUTER) != 0)
                 pj = (PathJoins) outer(pj);
-            if (recordJoins && !pj.isEmpty()) {
-                if (selectJoins == null)
-                    selectJoins = new SelectJoins(this);
-                if (selectJoins.joins() == null)
-                    selectJoins.setJoins(new JoinSet(pj.joins()));
-                else
-                    selectJoins.joins().addAll(pj.joins());
-            }
+            if (recordJoins && !pj.isEmpty())
+                recordSelectedJoins(pj);
         }
         return pj;
+    }
+
+    private void recordSelectedJoins(PathJoins pj) {
+        if (selectJoins == null)
+            selectJoins = new SelectJoins(this);
+        if (selectJoins.joins() == null)
+            selectJoins.setJoins(new JoinSet(pj.joins()));
+        else
+            selectJoins.joins().addAll(pj.joins());
     }
 
     @Override
@@ -1831,44 +1883,8 @@ public class SelectImpl
             sels = 1;
 
         Select[] clones = null;
-        SelectImpl sel;
         for (int i = 0; i < sels; i++) {
-            sel = (SelectImpl) configuration.getSQLFactoryInstance().newSelect();
-            sel.flags = flags;
-            sel.flags &= ~AGGREGATE;
-            sel.flags &= ~OUTER;
-            sel.flags &= ~LRS;
-            sel.flags &= ~EAGER_TO_ONE;
-            sel.flags &= ~EAGER_TO_MANY;
-            sel.flags &= ~FORCE_COUNT;
-            sel.joinSyntaxType = joinSyntaxType;
-            sel.rootSchemaAlias = rootSchemaAlias;
-            if (aliasMappings != null)
-                sel.aliasMappings = new HashMap(aliasMappings);
-            if (tables != null)
-                sel.tables = new TreeMap(tables);
-            if (selectJoins != null)
-                sel.selectJoins = selectJoins.clone(sel);
-            if (where != null)
-                sel.where = new SQLBuffer(where);
-            if (from != null) {
-                sel.from = (SelectImpl) from.whereClone(1);
-                sel.from.outerSelect = sel;
-            }
-            if (subsels != null) {
-                sel.subsels = new ArrayList(subsels.size());
-                SelectImpl sub;
-                SelectImpl selSub;
-                for (int j = 0; j < subsels.size(); j++) {
-                    sub = subsels.get(j);
-                    selSub = (SelectImpl) sub.fullClone(1);
-                    selSub.parentSelect = sel;
-                    selSub.subPath = sub.subPath;
-                    sel.subsels.add(selSub);
-                    if (sel.where != null)
-                        sel.where.replace(sub, selSub);
-                }
-            }
+            SelectImpl sel = createWhereCloneSelect();
 
             if (sels == 1)
                 return sel;
@@ -1877,6 +1893,58 @@ public class SelectImpl
             clones[i] = sel;
         }
         return configuration.getSQLFactoryInstance().newUnion(clones);
+    }
+
+    private SelectImpl createWhereCloneSelect() {
+        SelectImpl sel = (SelectImpl) configuration.getSQLFactoryInstance().newSelect();
+        copyWhereCloneState(sel);
+        cloneWhereCloneFromSelect(sel);
+        cloneWhereCloneSubselects(sel);
+        return sel;
+    }
+
+    private void copyWhereCloneState(SelectImpl sel) {
+        sel.flags = flags;
+        sel.flags &= ~AGGREGATE;
+        sel.flags &= ~OUTER;
+        sel.flags &= ~LRS;
+        sel.flags &= ~EAGER_TO_ONE;
+        sel.flags &= ~EAGER_TO_MANY;
+        sel.flags &= ~FORCE_COUNT;
+        sel.joinSyntaxType = joinSyntaxType;
+        sel.rootSchemaAlias = rootSchemaAlias;
+
+        if (aliasMappings != null)
+            sel.aliasMappings = new HashMap(aliasMappings);
+        if (tables != null)
+            sel.tables = new TreeMap(tables);
+        if (selectJoins != null)
+            sel.selectJoins = selectJoins.clone(sel);
+        if (where != null)
+            sel.where = new SQLBuffer(where);
+    }
+
+    private void cloneWhereCloneFromSelect(SelectImpl sel) {
+        if (from != null) {
+            sel.from = (SelectImpl) from.whereClone(1);
+            sel.from.outerSelect = sel;
+        }
+    }
+
+    private void cloneWhereCloneSubselects(SelectImpl sel) {
+        if (subsels == null)
+            return;
+
+        sel.subsels = new ArrayList(subsels.size());
+        for (int j = 0; j < subsels.size(); j++) {
+            SelectImpl sub = subsels.get(j);
+            SelectImpl selSub = (SelectImpl) sub.fullClone(1);
+            selSub.parentSelect = sel;
+            selSub.subPath = sub.subPath;
+            sel.subsels.add(selSub);
+            if (sel.where != null)
+                sel.where.replace(sub, selSub);
+        }
     }
 
     @Override
@@ -2053,40 +2121,56 @@ public class SelectImpl
      * Combine the given joins.
      */
     private SelectJoins and(PathJoins j1, PathJoins j2, boolean nullJoins) {
-        if ((j1 == null || j1.isEmpty())
-            && (j2 == null || j2.isEmpty()))
+        if (areBothJoinSetsEmptyForAnd(j1, j2))
             return null;
 
         SelectJoins sj = new SelectJoins(this);
-        if (j1 == null || j1.isEmpty()) {
-            if (j2.getSelect() == this) {
-                if (nullJoins)
-                    sj.setJoins(j2.joins());
-                else
-                    sj.setJoins(new JoinSet(j2.joins()));
-            }
-        } else {
-            JoinSet set = null;
-            if (j1.getSelect() == this) {
-                if (nullJoins)
-                    set = j1.joins();
-                else
-                    set = new JoinSet(j1.joins());
-
-                if (j2 != null && !j2.isEmpty()
-                    && j2.getSelect() == this)
-                    set.addAll(j2.joins());
-                sj.setJoins(set);
-            }
-        }
+        if (j1 == null || j1.isEmpty())
+            mergeSecondJoinSetForAnd(sj, j2, nullJoins);
+        else
+            mergeFirstJoinSetForAnd(sj, j1, j2, nullJoins);
 
         // null previous joins; all are combined into this one
+        clearCombinedJoinSetsForAnd(j1, j2, nullJoins);
+
+        return sj;
+    }
+
+    private boolean areBothJoinSetsEmptyForAnd(PathJoins j1, PathJoins j2) {
+        return (j1 == null || j1.isEmpty())
+            && (j2 == null || j2.isEmpty());
+    }
+
+    private void mergeSecondJoinSetForAnd(SelectJoins sj, PathJoins j2,
+        boolean nullJoins) {
+        if (j2.getSelect() != this)
+            return;
+
+        if (nullJoins)
+            sj.setJoins(j2.joins());
+        else
+            sj.setJoins(new JoinSet(j2.joins()));
+    }
+
+    private void mergeFirstJoinSetForAnd(SelectJoins sj, PathJoins j1,
+        PathJoins j2, boolean nullJoins) {
+        if (j1.getSelect() != this)
+            return;
+
+        JoinSet set = nullJoins ? j1.joins() : new JoinSet(j1.joins());
+
+        if (j2 != null && !j2.isEmpty() && j2.getSelect() == this)
+            set.addAll(j2.joins());
+
+        sj.setJoins(set);
+    }
+
+    private void clearCombinedJoinSetsForAnd(PathJoins j1, PathJoins j2,
+        boolean nullJoins) {
         if (nullJoins && j1 != null)
             j1.nullJoins();
         if (nullJoins && j2 != null)
             j2.nullJoins();
-
-        return sj;
     }
 
     @Override
@@ -2099,43 +2183,61 @@ public class SelectImpl
         boolean j1Empty = j1 == null || j1.isEmpty();
         boolean j2Empty = j2 == null || j2.isEmpty();
         if (j1Empty || j2Empty) {
-            if (j1Empty && !j2Empty) {
-                collectOuterJoins(j2);
-                if (!j2.isEmpty())
-                    flags |= IMPLICIT_DISTINCT;
-            } else if (!j1Empty) {
-                collectOuterJoins(j1);
-                if (!j1.isEmpty())
-                    flags |= IMPLICIT_DISTINCT;
-            }
+            processOrWithEmptySide(j1, j2, j1Empty, j2Empty);
             return null;
         }
 
         // if all common joins, move all joins to returned instance
         SelectJoins sj = new SelectJoins(this);
         if (j1.joins().equals(j2.joins())) {
-            sj.setJoins(j1.joins());
-            j1.nullJoins();
-            j2.nullJoins();
+            moveEquivalentOrJoins(sj, j1, j2);
         } else {
-            JoinSet commonJoins = new JoinSet(j1.joins());
-            commonJoins.retainAll(j2.joins());
-            if (!commonJoins.isEmpty()) {
-                // put common joins in returned instance; remove them from
-                // each given instance
-                sj.setJoins(commonJoins);
-                j1.joins().removeAll(commonJoins);
-                j2.joins().removeAll(commonJoins);
-            }
-            collectOuterJoins(j1);
-            collectOuterJoins(j2);
-
-            // if one side of the or clause has different joins than the other,
-            // then we need to use distinct
-            if (!j1.isEmpty() || !j2.isEmpty())
-                flags |= IMPLICIT_DISTINCT;
+            splitCommonOrJoins(sj, j1, j2);
         }
         return sj;
+    }
+
+    private void processOrWithEmptySide(PathJoins j1, PathJoins j2,
+        boolean j1Empty, boolean j2Empty) {
+        if (j1Empty && !j2Empty) {
+            collectOuterJoins(j2);
+            if (!j2.isEmpty())
+                flags |= IMPLICIT_DISTINCT;
+            return;
+        }
+
+        if (!j1Empty) {
+            collectOuterJoins(j1);
+            if (!j1.isEmpty())
+                flags |= IMPLICIT_DISTINCT;
+        }
+    }
+
+    private void moveEquivalentOrJoins(SelectJoins sj, PathJoins j1,
+        PathJoins j2) {
+        sj.setJoins(j1.joins());
+        j1.nullJoins();
+        j2.nullJoins();
+    }
+
+    private void splitCommonOrJoins(SelectJoins sj, PathJoins j1,
+        PathJoins j2) {
+        JoinSet commonJoins = new JoinSet(j1.joins());
+        commonJoins.retainAll(j2.joins());
+        if (!commonJoins.isEmpty()) {
+            // put common joins in returned instance; remove them from
+            // each given instance
+            sj.setJoins(commonJoins);
+            j1.joins().removeAll(commonJoins);
+            j2.joins().removeAll(commonJoins);
+        }
+        collectOuterJoins(j1);
+        collectOuterJoins(j2);
+
+        // if one side of the or clause has different joins than the other,
+        // then we need to use distinct
+        if (!j1.isEmpty() || !j2.isEmpty())
+            flags |= IMPLICIT_DISTINCT;
     }
 
     @Override
@@ -2148,6 +2250,11 @@ public class SelectImpl
         if (pj.isEmpty())
             return pj;
 
+        convertEligibleJoinsToOuter(pj);
+        return joins;
+    }
+
+    private void convertEligibleJoinsToOuter(PathJoins pj) {
         Join join;
         Join rec;
         boolean hasJoins = selectJoins != null && selectJoins.joins() != null;
@@ -2163,7 +2270,6 @@ public class SelectImpl
                 }
             }
         }
-        return joins;
     }
 
     /**
@@ -2177,29 +2283,40 @@ public class SelectImpl
         if (selectJoins == null)
             selectJoins = new SelectJoins(this);
 
-        boolean add = true;
-        if (selectJoins.joins() == null) {
-            selectJoins.setJoins(pj.joins());
-            add = false;
-        }
+        boolean add = prepareOuterJoinCollection(pj);
 
-        Join join;
         for (Iterator itr = pj.joins().iterator(); itr.hasNext();) {
-            join = (Join) itr.next();
-            if (join.getType() == Join.TYPE_INNER) {
-                if (join.getForeignKey() != null
-                    && !databaseDictionary.canOuterJoin(joinSyntaxType, join.getForeignKey())) {
-                    Log log = configuration.getLog(JDBCConfiguration.LOG_JDBC);
-                    if (log.isWarnEnabled())
-                        log.warn(_loc.get("cant-outer-fk",
-                            join.getForeignKey()));
-                } else
-                    join.setType(Join.TYPE_OUTER);
-            }
+            Join join = (Join) itr.next();
+            adjustJoinForOuterCollection(join);
             if (add)
                 selectJoins.joins().add(join);
         }
         pj.nullJoins();
+    }
+
+    private boolean prepareOuterJoinCollection(PathJoins pj) {
+        if (selectJoins.joins() != null)
+            return true;
+
+        selectJoins.setJoins(pj.joins());
+        return false;
+    }
+
+    private void adjustJoinForOuterCollection(Join join) {
+        if (join.getType() != Join.TYPE_INNER)
+            return;
+
+        if (join.getForeignKey() != null
+            && !databaseDictionary.canOuterJoin(joinSyntaxType,
+                join.getForeignKey())) {
+            Log log = configuration.getLog(JDBCConfiguration.LOG_JDBC);
+            if (log.isWarnEnabled())
+                log.warn(_loc.get("cant-outer-fk",
+                    join.getForeignKey()));
+            return;
+        }
+
+        join.setType(Join.TYPE_OUTER);
     }
 
     /**
@@ -2656,14 +2773,7 @@ public class SelectImpl
             if (pj != null && pj.path() != null) {
                 Column col = (Column) obj;
                 pk = (col.isPrimaryKey()) ? Boolean.TRUE : Boolean.FALSE;
-                if (joins == null && cachedColumnAlias != null) {
-                    obj = cachedColumnAlias.get(new CachedColumnAliasKey((Column) obj, pj));
-                    if (obj == null) {
-                        obj = getColumnAlias(col, pj);
-                    }
-                } else {
-                    obj = getColumnAlias(col, pj);
-                }
+                obj = resolveFindObjectAlias(col, pj, joins);
                 if (obj == null)
                     throw new SQLException(col.getTable() + ": "
                         + pj.path() + " (" + owningSelect.aliasMappings + ")");
@@ -2677,12 +2787,34 @@ public class SelectImpl
             // since pks might be selected in a slightly different order than
             // they are loaded back; don't change the marker position
             if (pk == null)
-                pk = (obj instanceof Column column && column.isPrimaryKey())
-                    ? Boolean.TRUE : Boolean.FALSE;
+                pk = identifyUnjoinedPrimaryKey(obj);
+
+            return locateFindObjectPosition(obj, pk);
+        }
+
+        private Object resolveFindObjectAlias(Column col, PathJoins pj, Joins joins) {
+            if (joins == null && cachedColumnAlias != null) {
+                Object alias = cachedColumnAlias.get(new CachedColumnAliasKey(col, pj));
+                if (alias == null)
+                    alias = getColumnAlias(col, pj);
+                return alias;
+            }
+            return getColumnAlias(col, pj);
+        }
+
+        private Boolean identifyUnjoinedPrimaryKey(Object obj) {
+            return (obj instanceof Column column && column.isPrimaryKey())
+                ? Boolean.TRUE : Boolean.FALSE;
+        }
+
+        private int locateFindObjectPosition(Object obj, Boolean pk)
+            throws SQLException {
             if (Boolean.TRUE.equals(pk)) {
-                for (int i = columnPosition - 1; i >= 0 && i >= columnPosition - 3; i--)
+                for (int i = columnPosition - 1;
+                    i >= 0 && i >= columnPosition - 3; i--) {
                     if (owningSelect.selects.get(i).equals(obj))
                         return i + 1;
+                }
             }
 
             // search forward on the assumption that we might be skipping
@@ -2699,9 +2831,10 @@ public class SelectImpl
             // somewhere prior to the current position; in this case leave the
             // position marker at its current place cause subsequent loads will
             // still probably start from there
-            for (int i = 0; i < columnPosition; i++)
+            for (int i = 0; i < columnPosition; i++) {
                 if (owningSelect.selects.get(i).equals(obj))
                     return i + 1;
+            }
 
             // somethings's wrong...
             throw new SQLException(obj.toString());
@@ -3125,29 +3258,7 @@ public class SelectImpl
 
             if (owningSelect.getJoinSyntax() != JoinSyntaxes.SYNTAX_SQL92
                 || owningSelect.from != null) {
-                // don't make any joins, but update the path if a variable
-                // has been set
-                if (this.variable != null) {
-                    this.append(this.variable);
-                } else if (this.path == null && this.correlatedVar != null && owningSelect.databaseDictionary.isImplicitJoin()) {
-                    String str = this.variable;
-                    boolean resolved = false;
-                    for(Object o : owningSelect.parentSelect.aliasMappings.keySet()){
-                        if (!resolved && o instanceof Key k) {
-                            if (this.correlatedVar.equals(k._path)) {
-                                str = this.correlatedVar;
-                                resolved = true;
-                            }
-                        }else if (!resolved && o.equals(this.correlatedVar)){
-                            str = this.correlatedVar;
-                            resolved = true;
-                        }
-                    }
-                    this.append(str);
-                }
-                this.variable = null;
-                outerJoins = false;
-                return this;
+                return finishCrossJoinWithoutJoin();
             }
 
             // don't let the get alias methods see that a variable has been set
@@ -3172,9 +3283,41 @@ public class SelectImpl
             joinSet.add(j);
             setCorrelated(j);
             outerJoins = false;
-            lastContext =  context;
+            lastContext = context;
             context = null;
             return this;
+        }
+
+        private Joins finishCrossJoinWithoutJoin() {
+            // don't make any joins, but update the path if a variable
+            // has been set
+            if (this.variable != null) {
+                this.append(this.variable);
+            } else if (this.path == null
+                && this.correlatedVar != null
+                && owningSelect.databaseDictionary.isImplicitJoin()) {
+                this.append(resolveCorrelatedCrossJoinPath());
+            }
+            this.variable = null;
+            outerJoins = false;
+            return this;
+        }
+
+        private String resolveCorrelatedCrossJoinPath() {
+            String str = this.variable;
+            boolean resolved = false;
+            for (Object o : owningSelect.parentSelect.aliasMappings.keySet()) {
+                if (!resolved && o instanceof Key k) {
+                    if (this.correlatedVar.equals(k._path)) {
+                        str = this.correlatedVar;
+                        resolved = true;
+                    }
+                } else if (!resolved && o.equals(this.correlatedVar)) {
+                    str = this.correlatedVar;
+                    resolved = true;
+                }
+            }
+            return str;
         }
 
         @Override
@@ -3216,58 +3359,70 @@ public class SelectImpl
             int alias1 = -1;
             if (createJoin) {
                 boolean createIndex = true;
-                table1 = (inverse) ? fk.getPrimaryKeyTable() : fk.getTable();
+                table1 = inverse ? fk.getPrimaryKeyTable() : fk.getTable();
                 if (correlatedVar != null)
                     createIndex = false;  // not to create here
                 alias1 = owningSelect.getTableIndex(table1, this, createIndex);
             }
 
+            appendJoinPath(name, variable, ctx);
+            recordToManyJoin(toMany);
+            outerJoins = outer;
+
+            if (createJoin)
+                addResolvedJoin(fk, target, subs, inverse, outer, table1, alias1);
+
+            lastContext = context;
+            context = null;
+            return this;
+        }
+
+        private void appendJoinPath(String name, String variable, Context ctx) {
             // update the path with the relation name before getting pk alias
             this.append(name);
             this.append(variable);
             if (variable == null)
                 this.append(correlatedVar);
             context = ctx;
+        }
 
+        private void recordToManyJoin(boolean toMany) {
             if (toMany) {
                 owningSelect.flags |= IMPLICIT_DISTINCT;
                 owningSelect.flags |= TO_MANY;
             }
-            outerJoins = outer;
+        }
 
-            if (createJoin) {
-                boolean createIndex = true;
-                Table table2 = (inverse) ? fk.getTable()
-                    : fk.getPrimaryKeyTable();
-                boolean created = false;
-                int alias2 = -1;
-                if (table2.isAssociation()) {
-                    alias2 = owningSelect.getTableIndex(table2, this, false);
-                    if (alias2 == -1)
-                        createIndex = true;
-                    else
-                        created = true;
-                }
-                else if (context == owningSelect.ctx())
-                   createIndex = true;
-                else if (correlatedVar != null)
-                    createIndex = false;
-                if (!created)
-                    alias2 = owningSelect.getTableIndex(table2, this, createIndex);
-                Join j = new Join(table1, alias1, table2, alias2, fk, inverse);
-                j.setType((outer) ? Join.TYPE_OUTER : Join.TYPE_INNER);
+        private void addResolvedJoin(ForeignKey fk, ClassMapping target,
+            int subs, boolean inverse, boolean outer, Table table1, int alias1) {
+            Table table2 = inverse ? fk.getTable() : fk.getPrimaryKeyTable();
+            int alias2 = resolveForeignAlias(table2);
+            Join j = new Join(table1, alias1, table2, alias2, fk, inverse);
+            j.setType(outer ? Join.TYPE_OUTER : Join.TYPE_INNER);
 
-                if (joinSet == null)
-                    joinSet = new JoinSet();
-                if (joinSet.add(j) && (subs == Select.SUBS_JOINABLE
-                    || subs == Select.SUBS_NONE))
-                    j.setRelation(target, subs, clone(owningSelect));
+            if (joinSet == null)
+                joinSet = new JoinSet();
+            if (joinSet.add(j) && (subs == Select.SUBS_JOINABLE
+                || subs == Select.SUBS_NONE))
+                j.setRelation(target, subs, clone(owningSelect));
 
-                setCorrelated(j);
+            setCorrelated(j);
+        }
+
+        private int resolveForeignAlias(Table table) {
+            if (table.isAssociation()) {
+                int alias = owningSelect.getTableIndex(table, this, false);
+                if (alias != -1)
+                    return alias;
+                return owningSelect.getTableIndex(table, this, true);
             }
-            lastContext = context;
-            context = null;
-            return this;
+
+            boolean createIndex = true;
+            if (context == owningSelect.ctx())
+                createIndex = true;
+            else if (correlatedVar != null)
+                createIndex = false;
+            return owningSelect.getTableIndex(table, this, createIndex);
         }
 
         private void setCorrelated(Join j) {
@@ -3494,33 +3649,56 @@ public class SelectImpl
 
                 @Override
                 public Object get(int i) {
-                    Object id = (ident && idents != null) ? idents.get(i)
-                        : ids.get(i);
-                    Object alias = aliasMappings.get(id);
-                    if (id instanceof Column column && column.isXML())
-                        alias = alias + databaseDictionary.getStringVal;
+                    Object id = getAliasLookupId(i, ident);
+                    Object alias = getAliasEntryWithXmlSuffix(id);
+                    String as = resolveAliasDisplayName(id, alias, inner);
 
-                    String as = null;
-                    if (inner) {
-                        if (alias instanceof String string)
-                            as = string.replace('.', '_');
-                    } else if (selectAs != null)
-                        as = (String) selectAs.get(id);
-                    else if (id instanceof Value value)
-                        as = value.getAlias();
+                    if (as != null)
+                        return applyAliasDisplay(alias, as, ident);
 
-                    if (as != null) {
-                        if (ident && idents != null)
-                            return as;
-                        if (alias instanceof SQLBuffer sqlbuffer)
-                            alias = new SQLBuffer(sqlbuffer).
-                                append(" AS ").append(as);
-                        else
-                            alias = alias + " AS " + as;
-                    }
                     return alias;
                 }
             };
+        }
+
+        private Object getAliasLookupId(int index, boolean ident) {
+            return (ident && idents != null) ? idents.get(index)
+                : ids.get(index);
+        }
+
+        private Object getAliasEntryWithXmlSuffix(Object id) {
+            Object alias = aliasMappings.get(id);
+            if (id instanceof Column column && column.isXML())
+                alias = alias + databaseDictionary.getStringVal;
+            return alias;
+        }
+
+        private String resolveAliasDisplayName(Object id, Object alias,
+            boolean inner) {
+            if (inner) {
+                if (alias instanceof String string)
+                    return string.replace('.', '_');
+                return null;
+            }
+
+            if (selectAs != null)
+                return (String) selectAs.get(id);
+
+            if (id instanceof Value value)
+                return value.getAlias();
+
+            return null;
+        }
+
+        private Object applyAliasDisplay(Object alias, String as,
+            boolean ident) {
+            if (ident && idents != null)
+                return as;
+
+            if (alias instanceof SQLBuffer sqlbuffer)
+                return new SQLBuffer(sqlbuffer).append(" AS ").append(as);
+
+            return alias + " AS " + as;
         }
 
         /**
