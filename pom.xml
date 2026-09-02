@@ -2229,6 +2229,8 @@
                         <!-- generated content -->
                         <exclude>**/.*/**</exclude>
                         <exclude>**/target/**/*</exclude>
+                        <!-- ISW2 coursework: not ASF-licensed content -->
+                        <exclude>isw2/**</exclude>
                     </excludes>
                     <includes>
                         <!-- only check common source files -->

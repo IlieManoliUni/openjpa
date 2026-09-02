@@ -15,8 +15,7 @@
 #
 name: Java CI
 on:
-  push:
-    branches: [master, 3.2.x]
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
