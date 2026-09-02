@@ -1222,8 +1222,8 @@ public class SelectImpl
         else
             ordering.append(", ");
 
-        if (orderBy instanceof SQLBuffer)
-            ordering.append((SQLBuffer) orderBy);
+        if (orderBy instanceof SQLBuffer sqlbuffer)
+            ordering.append(sqlbuffer);
         else
             ordering.append((String) orderBy);
         if (asc)
@@ -2674,9 +2674,9 @@ public class SelectImpl
             // since pks might be selected in a slightly different order than
             // they are loaded back; don't change the marker position
             if (pk == null)
-                pk = (obj instanceof Column && ((Column) obj).isPrimaryKey())
+                pk = (obj instanceof Column column && column.isPrimaryKey())
                     ? Boolean.TRUE : Boolean.FALSE;
-            if (pk) {
+            if (Boolean.TRUE.equals(pk)) {
                 for (int i = columnPosition - 1; i >= 0 && i >= columnPosition - 3; i--)
                     if (owningSelect.selects.get(i).equals(obj))
                         return i + 1;
@@ -3491,23 +3491,23 @@ public class SelectImpl
                     Object id = (ident && idents != null) ? idents.get(i)
                         : ids.get(i);
                     Object alias = aliasMappings.get(id);
-                    if (id instanceof Column && ((Column) id).isXML())
+                    if (id instanceof Column column && column.isXML())
                         alias = alias + databaseDictionary.getStringVal;
 
                     String as = null;
                     if (inner) {
-                        if (alias instanceof String)
-                            as = ((String) alias).replace('.', '_');
+                        if (alias instanceof String string)
+                            as = string.replace('.', '_');
                     } else if (selectAs != null)
                         as = (String) selectAs.get(id);
-                    else if (id instanceof Value)
-                        as = ((Value) id).getAlias();
+                    else if (id instanceof Value value)
+                        as = value.getAlias();
 
                     if (as != null) {
                         if (ident && idents != null)
                             return as;
-                        if (alias instanceof SQLBuffer)
-                            alias = new SQLBuffer((SQLBuffer) alias).
+                        if (alias instanceof SQLBuffer sqlbuffer)
+                            alias = new SQLBuffer(sqlbuffer).
                                 append(" AS ").append(as);
                         else
                             alias = alias + " AS " + as;
